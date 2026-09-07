@@ -1,0 +1,47 @@
+<!-- templates/includes/alerts.html -->
+{% if messages %}
+  <div id="django-alerts-container" class="space-y-3 mb-5 transition-all duration-500">
+    {% for message in messages %}
+      <div class="alert-item p-4 rounded-2xl text-xs font-semibold flex items-center justify-between border transition-all duration-500 shadow-sm
+        {% if message.tags == 'error' %}
+          bg-rose-50 text-rose-800 border-rose-200
+        {% elif message.tags == 'success' %}
+          bg-emerald-50 text-emerald-800 border-emerald-200
+        {% else %}
+          bg-amber-50 text-amber-800 border-amber-200
+        {% endif %}">
+        
+        <div class="flex items-center gap-2.5">
+          {% if message.tags == 'error' %}
+            <i class="fa-solid fa-circle-exclamation text-rose-500 text-sm shrink-0"></i>
+          {% elif message.tags == 'success' %}
+            <i class="fa-solid fa-circle-check text-emerald-500 text-sm shrink-0"></i>
+          {% else %}
+            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-sm shrink-0"></i>
+          {% endif %}
+          
+          <span>{{ message }}</span>
+        </div>
+
+        <button type="button" onclick="dismissAlert(this.parentElement)" class="opacity-60 hover:opacity-100 transition pl-2">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    function dismissAlert(element) {
+      element.style.opacity = '0';
+      element.style.transform = 'translateY(-6px)';
+      setTimeout(() => {
+        element.remove();
+      }, 500); 
+    }
+
+    setTimeout(() => {
+      const alerts = document.querySelectorAll('.alert-item');
+      alerts.forEach(alert => dismissAlert(alert));
+    }, 3000);
+  </script>
+{% endif %}
