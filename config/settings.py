@@ -31,14 +31,24 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+# config/settings.py
+
 INSTALLED_APPS = [
+    # Django apps...
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'accounts',
+
+    # Your apps
+    'apps.accounts',  # Updated path
+    'apps.home',
+    'apps.login',
+    'apps.profiles',
+    'apps.register',
+    'apps.user_settings',
 ]
 
 AUTH_USER_MODEL = 'accounts.Account'

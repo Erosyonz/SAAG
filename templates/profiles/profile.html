@@ -1,0 +1,122 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SA-AG - User Profile</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Custom Config -->
+    <script src="{% static 'js/profiles/profile.js' %}"></script>
+    
+    <!-- Font Awesome Icons & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{% static 'css/profiles/profile.css' %}">
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6 sm:p-12 antialiased text-slate-800">
+
+    <!-- Increased max-width from max-w-xl to max-w-4xl for a wider layout -->
+    <main class="w-full max-w-4xl">
+        <div class="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100">
+            
+            <!-- Scenic Cover Banner Background -->
+            <div class="absolute inset-0 z-0 h-full w-full bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=80');">
+                <div class="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-transparent"></div>
+            </div>
+
+            <!-- Top Gear Action Button -->
+            <div class="absolute top-6 right-6 z-20">
+                <a href="{% url 'user_settings' %}" title="Settings" class="w-12 h-12 bg-white/90 hover:bg-white text-slate-600 hover:text-forest-800 rounded-full flex items-center justify-center shadow-md transition border border-slate-100">
+                    <i class="fa-solid fa-gear text-base"></i>
+                </a>
+            </div>
+
+            <!-- Card Content with Larger Padding -->
+            <div class="relative z-10 p-8 sm:p-12 space-y-8">
+                
+                <!-- Avatar & Basic Bio -->
+                <div class="space-y-4 max-w-md">
+                    <div class="w-28 h-28 rounded-full bg-forest-800 text-amber-400 font-bold text-3xl flex items-center justify-center border-4 border-white shadow-lg overflow-hidden">
+                        {% if request.user.profile.avatar %}
+                            <img src="{{ request.user.profile.avatar.url }}" alt="Profile" class="w-full h-full object-cover">
+                        {% else %}
+                            <span>{{ request.user.username|first|upper|default:"H" }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        </h1>
+                        <p class="text-sm sm:text-base text-slate-600 font-medium mt-1">
+                            Exploring nature & trailing with <span class="text-forest-800 font-semibold">SAAG</span>
+                        </p>
+                    </div>
+
+                    <!-- Meta Tags -->
+                    <div class="flex flex-wrap items-center gap-6 text-sm text-slate-500 font-medium pt-1">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-at text-slate-400"></i>
+                            {{ request.user.username }}
+                        </span>
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-envelope text-slate-400"></i>
+                            {{ request.user.email|default:"No email set" }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Stats Grid Section (Wider & Spaced Out) -->
+                <div class="flex items-center gap-8 py-4 border-t border-b border-slate-200/80 max-w-md">
+                    <div>
+                        <div class="flex items-center gap-1.5 text-slate-900 font-bold text-lg">
+                            <i class="fa-solid fa-star text-amber-500 text-sm"></i>
+                            <span>4.9</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-medium tracking-wide">rating</span>
+                    </div>
+
+                    <div class="border-l border-slate-200 pl-8">
+                        <div class="text-slate-900 font-bold text-lg">
+                            {{ request.user.date_joined|date:"M Y" }}
+                        </div>
+                        <span class="text-xs text-slate-400 font-medium tracking-wide">member since</span>
+                    </div>
+
+                    <div class="border-l border-slate-200 pl-8">
+                        <div class="text-slate-900 font-bold text-lg">
+                            Active
+                        </div>
+                        <span class="text-xs text-slate-400 font-medium tracking-wide">status</span>
+                    </div>
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div class="flex items-center justify-between pt-2">
+                    <div class="flex items-center gap-3 text-slate-600 text-sm font-semibold">
+                        <span class="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 shadow-sm flex items-center justify-center">
+                            <i class="fa-solid fa-tree text-forest-800"></i>
+                        </span>
+                        <span class="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 shadow-sm flex items-center justify-center">
+                            <i class="fa-solid fa-compass text-forest-800"></i>
+                        </span>
+                        <span class="ml-1 text-slate-500 text-xs">Hiker</span>
+                    </div>
+
+                    <a href="{% url 'home' %}" class="px-8 py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-full font-semibold text-sm transition-all shadow-lg flex items-center gap-2">
+                        <span>Back to Home</span>
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
