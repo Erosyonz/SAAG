@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Account
+from .models import Account, Route, UserCompletedRoute, RouteCoordinates, RouteWaypoint
 
-# Register your models here.
 admin.site.register(Account)
+admin.site.register(Route)
+admin.site.register(UserCompletedRoute)
+admin.site.register(RouteCoordinates)
+admin.site.register(RouteWaypoint)
