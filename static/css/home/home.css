@@ -1,0 +1,49 @@
+/* Font Configuration */
+body {
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Nature/Hiking Hero Background Overlay */
+.bg-trail-hero {
+    background-image: 
+        linear-gradient(to bottom, rgba(11, 23, 18, 0.65), rgba(11, 23, 18, 0.85)),
+        url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* Clean Glassmorphic Card */
+.glass-card {
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3);
+}
+
+/* Leaflet Map Specific Overrides */
+#map {
+    width: 100%;
+    height: 100%;
+    min-height: 450px;
+    z-index: 10;
+}
+
+/* Custom Scrollbar for Waypoints Sidebar List */
+#pin-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+#pin-list::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.5);
+    border-radius: 8px;
+}
+
+#pin-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+}
+
+#pin-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

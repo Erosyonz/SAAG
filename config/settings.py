@@ -13,6 +13,11 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from pathlib import Path
 
+import dotenv
+import os
+
+dotenv.load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,14 +36,24 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+# config/settings.py
+
 INSTALLED_APPS = [
+    # Django apps...
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'accounts',
+
+    # Your apps
+    'apps.accounts',  # Updated path
+    'apps.home',
+    'apps.login',
+    'apps.profiles',
+    'apps.register',
+    'apps.user_settings',
 ]
 
 AUTH_USER_MODEL = 'accounts.Account'

@@ -1,0 +1,176 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAAG - Account Settings</title>
+    
+    <!-- Third-Party CDNs -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Static Local Utilities -->
+    <link rel="stylesheet" href="{% static 'css/user_settings/settings.css' %}">
+    <script src="{% static 'js/user_settings/settings.js' %}" defer></script>
+</head>
+<body class="bg-trail-hero min-h-screen flex items-center justify-center p-4 sm:p-6 antialiased text-slate-800">
+
+    <main class="w-full max-w-lg">
+        <div class="glass-card rounded-3xl p-8 sm:p-10 transition-all my-8">
+            
+            <!-- Header Section with Back to Profile & Sign Out Links -->
+            <div class="flex items-center justify-between mb-8">
+                <a href="{% url 'profile' %}" class="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-forest-800 transition">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span>Back to Profile</span>
+                </a>
+                <a href="{% url 'logout' %}" class="text-xs font-semibold text-terracotta-600 hover:text-terracotta-500 transition">
+                    Sign Out
+                </a>
+            </div>
+
+            <!-- Header Text -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-forest-900 tracking-tight">Account Settings</h1>
+                <p class="text-xs text-slate-500 mt-1">Update your profile details and security settings.</p>
+            </div>
+
+            <!-- Dynamic Alerts -->
+            {% include 'includes/alerts.html' %}
+
+            <!-- Settings Form -->
+            <form method="POST" action="{% url 'user_settings' %}" class="space-y-6">
+                {% csrf_token %}
+
+                <!-- SECTION 1: Personal Details -->
+                <div class="space-y-4">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/60 pb-2">
+                        Personal Information
+                    </p>
+
+                    <!-- First & Last Name Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">First Name</label>
+                            <div class="relative">
+                                <i data-lucide="user" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input 
+                                    type="text" 
+                                    name="first_name" 
+                                    value="{{ request.user.first_name }}"
+                                    placeholder="First name"
+                                    class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
+                                >
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Last Name</label>
+                            <div class="relative">
+                                <i data-lucide="user" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input 
+                                    type="text" 
+                                    name="last_name" 
+                                    value="{{ request.user.last_name }}"
+                                    placeholder="Last name"
+                                    class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Field -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Email Address</label>
+                        <div class="relative">
+                            <i data-lucide="mail" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input 
+                                type="email" 
+                                name="email" 
+                                value="{{ request.user.email }}"
+                                required
+                                placeholder="name@example.com"
+                                class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: Security & Password -->
+                <div class="space-y-4 pt-2">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/60 pb-2">
+                        Password Update <span class="text-[10px] font-normal lowercase text-slate-400">(leave blank to keep current)</span>
+                    </p>
+
+                    <!-- Current Password Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Current Password</label>
+                        <div class="relative">
+                            <i data-lucide="lock" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input 
+                                type="password" 
+                                name="old_password" 
+                                placeholder="••••••••"
+                                class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- New Password Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">New Password</label>
+                        <div class="relative">
+                            <i data-lucide="key-round" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input 
+                                type="password" 
+                                name="new_password1" 
+                                placeholder="••••••••"
+                                class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Confirm New Password Input -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Confirm New Password</label>
+                        <div class="relative">
+                            <i data-lucide="shield-check" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input 
+                                type="password" 
+                                name="new_password2" 
+                                placeholder="••••••••"
+                                class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Changes Button -->
+                <button 
+                    type="submit" 
+                    class="w-full py-3.5 px-4 bg-forest-800 hover:bg-forest-900 active:scale-[0.99] text-white rounded-xl font-semibold text-sm shadow-lg shadow-forest-950/20 transition-all flex items-center justify-center gap-2 group mt-4"
+                >
+                    <span>Save Changes</span>
+                    <i data-lucide="check" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+                </button>
+            </form>
+
+            <!-- Bottom Navigation Link -->
+            <div class="mt-8 pt-6 border-t border-slate-100 text-center">
+                <p class="text-xs text-slate-500">
+                    Done configuring your settings? 
+                    <a href="{% url 'home' %}" class="text-terracotta-600 hover:underline font-semibold ml-1">Return to Trails Home</a>
+                </p>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
