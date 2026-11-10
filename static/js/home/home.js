@@ -1,129 +1,129 @@
-// home.js
+/**
+ * home.js - Leaflet satellite map with bottom hero cards that disappear on map click
+ */
 
-// 1. Configure Tailwind theme extensions
-tailwind.config = {
-    theme: {
-        extend: {
-            colors: {
-                forest: { 100: '#dcfce7', 700: '#15803d', 800: '#1e3d2f', 900: '#142920', 950: '#0b1712' },
-                terracotta: { 50: '#fff7ed', 100: '#ffedd5', 500: '#d96b43', 600: '#c2542d' },
-                amber: { 400: '#fbbf24' }
-            },
-            fontFamily: { sans: ['Outfit', 'sans-serif'] }
-        }
-    }
-};
+let map;
+let activeMarker = null;
 
-// 2. Wrap all DOM and Map logic inside DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // Initialize Lucide icons if available
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
+    initMap();
+    initModalEvents();
+});
 
-    // Safety check: ensure map element exists on current template
-    const mapElement = document.getElementById('map');
-    if (!mapElement) return;
+function initMap() {
+    const container = document.getElementById('mapbox-container');
+    if (!container) return;
 
-    // Default Trail Coordinates
-    const initialLat = 10.3167;
-    const initialLng = 123.8907;
-    const initialZoom = 12;
+    // 1. Initialize Leaflet Map
+    map = L.map(container, {
+        zoomControl: false,
+        attributionControl: false
+    }).setView([10.3157, 123.8907], 13); // Centered over Cebu / Cordova region
 
-    // Initialize Leaflet map
-    const map = L.map('map').setView([initialLat, initialLng], initialZoom);
-    const apiKey = window.CARTO_API_KEY || '';
-
-    // Add OpenStreetMap tile layer
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${apiKey}`, {
-        maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    // 2. Add Free Public Satellite Tile Layer (Esri World Imagery)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19
     }).addTo(map);
 
-    
-    // Force Leaflet to recalculate map dimensions once layout settles
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 200);
+    // 3. Move Zoom Control to Bottom Left
+    L.control.zoom({
+        position: 'bottomleft'
+    }).addTo(map);
 
-    // Track created Leaflet marker instances
-    let markers = [];
-
-    // DOM Elements
-    const pinList = document.getElementById('pin-list');
-    const emptyState = document.getElementById('empty-state');
-    const clearBtn = document.getElementById('clear-btn');
-    const pinCount = document.getElementById('pin-count');
-
-    // Helper to sync count badge UI
-    function updatePinCount() {
-        if (pinCount) {
-            pinCount.textContent = `${markers.length} ${markers.length === 1 ? 'Pin' : 'Pins'}`;
-        }
-    }
-
-    // Helper function to add a pin to the map & sidebar list
-    function addPin(lat, lng, label = null) {
-        if (emptyState) {
-            emptyState.style.display = 'none';
-        }
-
-        // Create Leaflet marker
-        const marker = L.marker([lat, lng]).addTo(map);
-        const pinIndex = markers.length + 1;
-        const pinTitle = label || `Waypoint #${pinIndex}`;
-
-        // Bind popup to marker
-        marker
-            .bindPopup(`
-                <div class="text-xs font-sans">
-                    <strong style="color: #1e3d2f;">${pinTitle}</strong><br>
-                    Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}
-                </div>
-            `)
-            .openPopup();
-
-        markers.push(marker);
-        updatePinCount();
-
-        // Append new location card to sidebar list
-        if (pinList) {
-            const li = document.createElement('li');
-            li.className = 'p-3 bg-slate-50 border-l-4 border-forest-800 rounded-lg flex justify-between items-center shadow-sm text-xs';
-            li.innerHTML = `
-                <div>
-                    <span class="font-bold text-slate-800 block">${pinTitle}</span>
-                    <span class="text-slate-500 font-mono">${lat.toFixed(4)}, ${lng.toFixed(4)}</span>
-                </div>
-                <i class="fa-solid fa-location-crosshairs text-forest-700"></i>
-            `;
-            pinList.appendChild(li);
-        }
-    }
-
-    // Add default initial marker
-    addPin(initialLat, initialLng, "Trailhead Center");
-
-    // Map click event listener
+    // 4. Handle Map Clicks: Hide bottom cards, get location, and open right modal
     map.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        addPin(lat, lng);
+        const clickLat = e.latlng.lat;
+        const clickLng = e.latlng.lng;
+
+        // --- Hide bottom floating hero cards when map is clicked ---
+        hideHeroCards();
+
+        // --- Open and populate the right-side modal ---
+        document.getElementById('modal-coords').textContent = 'Fetching location...';
+        document.getElementById('modal-title-input').value = 'My Current Location';
+        document.getElementById('modal-desc-input').value = 'Retrieving GPS coordinates...';
+        openModal();
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    updateMapAndModal(userLat, userLng, `GPS Position (Accurate to ~${Math.round(accuracy)}m)`);
+                },
+                (error) => {
+                    console.warn("Geolocation fallback to click point.", error.message);
+                    updateMapAndModal(clickLat, clickLng, 'Selected Map Point');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        } else {
+            updateMapAndModal(clickLat, clickLng, 'Selected Map Point');
+        }
     });
 
-    // Clear button event listener
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            markers.forEach((marker) => map.removeLayer(marker));
-            markers = [];
+    window.addEventListener('resize', () => {
+        map.invalidateSize();
+    });
+}
 
-            if (pinList) pinList.innerHTML = '';
-            if (emptyState) {
-                emptyState.style.display = 'block';
-                pinList.appendChild(emptyState);
-            }
-            updatePinCount();
+function updateMapAndModal(lat, lng, descriptionText) {
+    if (activeMarker) {
+        map.removeLayer(activeMarker);
+    }
+
+    const latLng = [lat, lng];
+    const customGreenIcon = L.divIcon({
+        className: 'custom-map-marker',
+        html: '<div class="w-5 h-5 bg-emerald-400 rounded-full border-2 border-white shadow-md animate-bounce cursor-pointer"></div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
+
+    activeMarker = L.marker(latLng, { icon: customGreenIcon }).addTo(map);
+    map.setView(latLng, 16, { animate: true });
+
+    const coordsText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    document.getElementById('modal-coords').textContent = coordsText;
+    document.getElementById('modal-desc-input').value = descriptionText;
+}
+
+function initModalEvents() {
+    const closeBtn = document.getElementById('close-modal-btn');
+    const saveBtn = document.getElementById('save-location-btn');
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const title = document.getElementById('modal-title-input').value || 'Unnamed Location';
+            alert(`Location "${title}" saved successfully!`);
+            closeModal();
         });
     }
-});
+}
+
+function openModal() {
+    const modal = document.getElementById('location-modal');
+    if (modal) modal.classList.remove('translate-x-full');
+}
+
+function closeModal() {
+    const modal = document.getElementById('location-modal');
+    if (modal) modal.classList.add('translate-x-full');
+}
+
+// --- Functions to control bottom floating cards ---
+function hideHeroCards() {
+    const cardsContainer = document.getElementById('hero-cards-container');
+    if (cardsContainer) {
+        cardsContainer.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+    }
+}
+
+function showHeroCards() {
+    const cardsContainer = document.getElementById('hero-cards-container');
+    if (cardsContainer) {
+        cardsContainer.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+    }
+}

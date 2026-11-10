@@ -1,132 +1,239 @@
+
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>SA-AG - Interactive Trail Map</title>
-    
-    <!-- 1. Tailwind CSS CDN -->
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Mapbox CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css"
+          rel="stylesheet" />
 
-    <!-- 3. Font Awesome & Google Fonts -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- 4. Custom Application Stylesheet -->
+    <!-- Mapbox JavaScript -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+
+    <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="{% static 'css/home/home.css' %}">
+
+    <!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
 </head>
-<body class="bg-trail-hero min-h-screen flex flex-col font-sans text-slate-800">
 
-    <!-- Top Navigation Header -->
-    <header class="w-full bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            
-            <!-- Logo Section -->
-            <div class="flex items-center gap-3">
-                <div class="inline-flex items-center justify-center w-10 h-10 bg-forest-800 text-amber-400 rounded-xl text-lg shadow-sm">
-                    <i class="fa-solid fa-tree"></i>
-                </div>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight text-forest-900">SA-AG Trails</h1>
-                    <p class="text-xs text-gray-500">Welcome, {{ request.user.username|default:"Hiker" }}!</p>
-                </div>
-            </div>
+<body class="bg-gray-100 min-h-screen font-sans text-slate-800">
 
-            <!-- Header Quick Action Badges -->
-            <div class="flex items-center gap-2">
-                <a href="{% url 'profile' %}" title="View Profile" class="w-10 h-10 bg-white hover:bg-slate-50 text-forest-800 rounded-xl flex items-center justify-center shadow-sm hover:shadow transition-all border border-slate-200">
-                    <i class="fa-solid fa-user"></i>
-                </a>
-                <a href="{% url 'user_settings' %}" title="Settings" class="w-10 h-10 bg-white hover:bg-slate-50 text-slate-600 hover:text-forest-800 rounded-xl flex items-center justify-center shadow-sm hover:shadow transition-all border border-slate-200">
-                    <i class="fa-solid fa-gear"></i>
-                </a>
-                <a href="{% url 'logout' %}" title="Log Out" class="w-10 h-10 bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-600 rounded-xl flex items-center justify-center transition-all border border-terracotta-200">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                </a>
-            </div>
+    <!-- Main Application Layout -->
+    <div class="flex h-screen w-full overflow-hidden bg-gray-100">
 
-        </div>
-    </header>
+        <!-- SIDEBAR -->
+        <aside id="sidebar-header"
+            class="bg-black text-white w-16 shrink-0 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0">
 
-    <!-- Main Dashboard Grid Layout -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div>
 
-        <!-- Sidebar Panel -->
-        <aside class="space-y-6 flex flex-col">
-            
-            <!-- User Status Card -->
-            <div class="glass-card bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-white/40 space-y-4">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-full bg-forest-100 text-forest-800 flex items-center justify-center font-bold text-xl">
-                        {{ request.user.username|first|default:"H"|upper }}
-                    </div>
-                    <div>
-                        <h2 class="font-bold text-gray-900 text-lg">Hello, {{ request.user.username|default:"Hiker" }}!</h2>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active Session
-                        </span>
-                    </div>
+                <!-- Brand Header -->
+                <div class="flex items-center justify-between pb-6 mb-6 border-b border-gray-800">
+
+                    <!-- Mobile Close Button -->
+                    <button id="close-sidebar-btn"
+                        class="md:hidden text-gray-400 hover:text-white focus:outline-none">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="size-6">
+
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M6 18 18 6M6 6l12 12" />
+
+                        </svg>
+
+                    </button>
+
                 </div>
 
-                <div class="border-t border-slate-100 pt-4 space-y-2">
-                    <a href="{% url 'profile' %}" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-forest-800 hover:bg-forest-900 text-white text-sm font-semibold rounded-xl transition shadow-sm">
-                        <i class="fa-solid fa-id-card"></i>
-                        <span>View Profile</span>
+                <!-- Navigation Links -->
+                <nav class="space-y-2">
+
+                    <!-- Home -->
+                    <a href="#home"
+                        class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                        data-page="home">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="size-6 shrink-0">
+
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+
+                        </svg>
+
                     </a>
-                    <a href="{% url 'user_settings' %}" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition border border-slate-200/80">
-                        <i class="fa-solid fa-gear"></i>
-                        <span>Account Settings</span>
+
+                    <!-- Map Shortcut (Returns to Home Map) -->
+                    <a href="#home"
+                        class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                        data-page="home">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="size-6 shrink-0">
+
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M9 6.75V15m6-6v8.25m.503-11.487 4.5 1.744a.75.75 0 0 1 .497.702v12.247a.75.75 0 0 1-.996.711l-4.5-1.744a.75.75 0 0 0-.504 0l-4.5 1.744a.75.75 0 0 1-.497-.702V4.225a.75.75 0 0 1 .996-.711l4.5 1.744a.75.75 0 0 0 .504 0Z" />
+
+                        </svg>
+
                     </a>
-                </div>
+
+                    <!-- Profile -->
+                    <a href="#profile"
+                        class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                        data-page="profile">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="size-6 shrink-0">
+
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+
+                        </svg>
+
+                    </a>
+
+                </nav>
+
             </div>
 
-            <!-- Waypoint Logger Control Box -->
-            <div class="glass-card bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-white/40 flex-1 flex flex-col min-h-[300px]">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="font-bold text-gray-900 flex items-center gap-2">
-                        <i class="fa-solid fa-location-dot text-forest-800"></i> Pinned Waypoints
-                    </h3>
-                    <span id="pin-count" class="text-xs bg-forest-100 text-forest-800 px-2 py-0.5 rounded-full font-semibold">0 Pins</span>
-                </div>
-                
-                <p class="text-xs text-gray-500 mb-4">Click anywhere on the map to pin waypoints and trail markers.</p>
-
-                <!-- List of dynamic pins -->
-                <ul id="pin-list" class="space-y-2 overflow-y-auto flex-1 max-h-64 pr-1 text-sm">
-                    <li class="text-gray-400 text-xs italic text-center py-8" id="empty-state">
-                        <i class="fa-solid fa-map-pin text-2xl mb-2 text-slate-300 block"></i>
-                        No map waypoints logged yet.
-                    </li>
-                </ul>
-
-                <button id="clear-btn" class="mt-4 w-full bg-terracotta-500 hover:bg-terracotta-600 text-white text-sm font-medium py-2.5 px-4 rounded-xl transition shadow-sm flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-trash-can"></i>
-                    <span>Clear All Pins</span>
-                </button>
+            <!-- Sidebar Footer -->
+            <div class="pt-4 border-t border-gray-800 text-xs text-gray-500 p-2">
+                &copy; SAAG
             </div>
 
         </aside>
 
-        <!-- Interactive Map Container -->
-        <section class="lg:col-span-2 glass-card bg-white/90 backdrop-blur-md rounded-3xl p-3 shadow-sm border border-white/40 flex flex-col h-[500px] lg:h-[600px] min-h-[500px]">
-            <div id="map" class="w-full h-full rounded-2xl border border-slate-200 min-h-[480px]"></div>
-        </section>
 
-    </main>
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 min-w-0 h-full overflow-hidden m-0 p-0">
 
-    <!-- Leaflet JS CDN -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <!-- HOME PAGE -->
+            <section id="view-home"
+                class="page-view flex flex-col w-full h-full min-w-0 relative overflow-hidden">
+                            
+                <!-- Map Container filling 100% -->
+                <div id="mapbox-container"
+                    class="w-full h-full absolute inset-0">
+                </div>
 
-    <!-- Catro api key -->
-    <script>
-        window.CARTO_API_KEY = "{{ carto_api_key|escapejs }}";
-    </script>
+                <!-- Satellite Mode Indicator -->
+                <div class="absolute top-4 left-4 z-[400] bg-black/80 backdrop-blur-md text-white text-xs px-3 py-2 rounded-full pointer-events-none border border-white/10 shadow-lg flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Satellite Mode Active
+                </div>
 
-    <!-- Custom JS Script (Loaded after Leaflet) -->
+                <!-- FLOATING HERO CARDS OVERLAY (Positioned at the bottom of the map) -->
+                <div id="hero-cards-container" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[900] flex gap-6 overflow-x-auto pb-2 pointer-events-auto transition-opacity duration-300 max-w-full px-6">
+                    
+                    <!-- Card 1 -->
+                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] min-h-[200px] flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-lg shrink-0">⛰️</div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Babanag Ridge</h4>
+                            <p class="text-xs text-slate-500">Moderate · 8.5 km</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2 -->
+                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-lg shrink-0">🌲</div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Mt. Kan-Irag Peak</h4>
+                            <p class="text-xs text-slate-500">Challenging · 12.2 km</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3 -->
+                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-lg shrink-0">🌊</div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Cordova Baywalk</h4>
+                            <p class="text-xs text-slate-500">Easy · 3.1 km</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- RIGHT SIDE OVERLAY MODAL -->
+                <div id="location-modal" class="absolute top-0 right-0 h-full w-96 bg-white/95 backdrop-blur-md shadow-2xl z-[1000] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200 pointer-events-auto">
+                    <!-- Modal Header -->
+                    <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-slate-800 text-lg">Selected Location</h3>
+                        <button id="close-modal-btn" class="text-gray-400 hover:text-slate-700 p-1 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body / Content -->
+                    <div class="p-6 flex-1 overflow-y-auto space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Coordinates</label>
+                            <p id="modal-coords" class="text-sm font-mono bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-slate-700">-</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Location Title / Name</label>
+                            <input type="text" id="modal-title-input" placeholder="e.g. Mountain View Trailhead" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Description / Details</label>
+                            <textarea id="modal-desc-input" rows="3" placeholder="Add trail details, elevation, or notes..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                        </div>
+
+                        <button id="save-location-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition-colors shadow-sm">
+                            Save Location
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <!-- Custom Application JavaScript -->
+    <script src="{% static 'js/home/main.js' %}"></script>
     <script src="{% static 'js/home/home.js' %}"></script>
+
 </body>
 </html>

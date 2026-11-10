@@ -4,8 +4,16 @@ from apps.accounts.models import Account
 
 def saag_home(request):
     accounts = Account.objects.all()
+
     context = {
         'accounts': accounts,
-        'carto_api_key': os.getenv('CARTO_API_KEY', '')
+        'mapbox_token': os.getenv('MAPBOX_KEY')
     }
+
     return render(request, 'home/home.html', context)
+
+
+def home(request):
+    return render(request, 'home.html', {
+        'mapbox_token': 'YOUR_MAPBOX_PUBLIC_TOKEN'
+    })
