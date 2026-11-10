@@ -158,22 +158,71 @@
                     Satellite Mode Active
                 </div>
 
-                <!-- MOVED OUTSIDE: Button to Toggle Heroes Overlay -->
-                <button id="open-heroes-btn" class="absolute top-16 left-4 z-[400] bg-white/90 hover:bg-white text-slate-800 text-xs font-semibold px-3 py-2 rounded-lg shadow-lg backdrop-blur-md border border-gray-200 transition-colors pointer-events-auto flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-emerald-600">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-                    </svg>
-                    Heroes
-                </button>
+                <!-- FLOATING HERO CARDS OVERLAY (Positioned at the bottom of the map) -->
+                <div id="hero-cards-container" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[900] flex gap-6 overflow-x-auto pb-2 pointer-events-auto transition-opacity duration-300 max-w-full px-6">
+                    
+                    <!-- Card 1 -->
+                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] min-h-[200px] flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-lg shrink-0">⛰️</div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Babanag Ridge</h4>
+                            <p class="text-xs text-slate-500">Moderate · 8.5 km</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2 -->
+                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-lg shrink-0">🌲</div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Mt. Kan-Irag Peak</h4>
+                            <p class="text-xs text-slate-500">Challenging · 12.2 km</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3 -->
+                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-lg shrink-0">🌊</div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Cordova Baywalk</h4>
+                            <p class="text-xs text-slate-500">Easy · 3.1 km</p>
+                        </div>
+                    </div>
+
+                </div>
 
                 <!-- RIGHT SIDE OVERLAY MODAL -->
                 <div id="location-modal" class="absolute top-0 right-0 h-full w-96 bg-white/95 backdrop-blur-md shadow-2xl z-[1000] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200 pointer-events-auto">
-                    <!-- ... modal content ... -->
-                </div>
+                    <!-- Modal Header -->
+                    <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-slate-800 text-lg">Selected Location</h3>
+                        <button id="close-modal-btn" class="text-gray-400 hover:text-slate-700 p-1 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
 
-                <!-- HEROES OVERLAY PANEL -->
-                <div id="heroes-modal" class="absolute top-0 left-0 h-full w-80 bg-white/95 backdrop-blur-md shadow-2xl z-[1000] transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-r border-gray-200 pointer-events-auto">
-                    <!-- ... heroes content ... -->
+                    <!-- Modal Body / Content -->
+                    <div class="p-6 flex-1 overflow-y-auto space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Coordinates</label>
+                            <p id="modal-coords" class="text-sm font-mono bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-slate-700">-</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Location Title / Name</label>
+                            <input type="text" id="modal-title-input" placeholder="e.g. Mountain View Trailhead" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Description / Details</label>
+                            <textarea id="modal-desc-input" rows="3" placeholder="Add trail details, elevation, or notes..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                        </div>
+
+                        <button id="save-location-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition-colors shadow-sm">
+                            Save Location
+                        </button>
+                    </div>
                 </div>
 
             </section>

@@ -1,5 +1,5 @@
 /**
- * home.js - Leaflet satellite map with click-to-pin modal and sliding Heroes overlay drawer
+ * home.js - Leaflet satellite map with bottom hero cards that disappear on map click
  */
 
 let map;
@@ -8,14 +8,13 @@ let activeMarker = null;
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
     initModalEvents();
-    initHeroesEvents();
 });
 
 function initMap() {
     const container = document.getElementById('mapbox-container');
     if (!container) return;
 
-    // 1. Initialize Leaflet Map filling the container completely
+    // 1. Initialize Leaflet Map
     map = L.map(container, {
         zoomControl: false,
         attributionControl: false
@@ -31,11 +30,15 @@ function initMap() {
         position: 'bottomleft'
     }).addTo(map);
 
-    // 4. Handle Map Clicks to Get Geolocation & Open Modal
+    // 4. Handle Map Clicks: Hide bottom cards, get location, and open right modal
     map.on('click', (e) => {
         const clickLat = e.latlng.lat;
         const clickLng = e.latlng.lng;
 
+        // --- Hide bottom floating hero cards when map is clicked ---
+        hideHeroCards();
+
+        // --- Open and populate the right-side modal ---
         document.getElementById('modal-coords').textContent = 'Fetching location...';
         document.getElementById('modal-title-input').value = 'My Current Location';
         document.getElementById('modal-desc-input').value = 'Retrieving GPS coordinates...';
@@ -110,22 +113,17 @@ function closeModal() {
     if (modal) modal.classList.add('translate-x-full');
 }
 
-// --- Heroes Drawer Controls ---
-function initHeroesEvents() {
-    const openHeroesBtn = document.getElementById('open-heroes-btn');
-    const closeHeroesBtn = document.getElementById('close-heroes-btn');
-
-    if (openHeroesBtn) {
-        openHeroesBtn.addEventListener('click', () => {
-            const heroesModal = document.getElementById('heroes-modal');
-            if (heroesModal) heroesModal.classList.remove('-translate-x-full');
-        });
+// --- Functions to control bottom floating cards ---
+function hideHeroCards() {
+    const cardsContainer = document.getElementById('hero-cards-container');
+    if (cardsContainer) {
+        cardsContainer.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
     }
+}
 
-    if (closeHeroesBtn) {
-        closeHeroesBtn.addEventListener('click', () => {
-            const heroesModal = document.getElementById('heroes-modal');
-            if (heroesModal) heroesModal.classList.add('-translate-x-full');
-        });
+function showHeroCards() {
+    const cardsContainer = document.getElementById('hero-cards-container');
+    if (cardsContainer) {
+        cardsContainer.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
     }
 }
