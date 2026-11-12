@@ -8,6 +8,7 @@ from apps.profiles.views import profile_view
 from apps.user_settings.views import user_settings
 
 urlpatterns = [
+    path('', account_login, name='root_login'),       # Maps root /SA-AG/ to account_login
     path('home/', saag_home, name='home'),
     path('login/', account_login, name='login'),
     path('register/', account_register, name='register'),
