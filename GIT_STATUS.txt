@@ -1,0 +1,6 @@
+ M templates/home/home.html
+?? GIT_ALL_COMMITTED_CHANGES.patch
+?? GIT_COMMIT_DETAILS.txt
+?? GIT_HISTORY.txt
+?? GIT_STATUS.txt
+?? GIT_UNCOMMITTED_CHANGES.patch
