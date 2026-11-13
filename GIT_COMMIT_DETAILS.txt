@@ -1,0 +1,8 @@
+commit e2027c8e57411668fb32ff780506407741cfb041
+Merge: b2023d7 07091ad
+Author: Alleah I. Dela Pena <alleah.delapena@cit.edu>
+Date:   2026-11-10 17:34:39 +0800
+
+    Merge pull request #2 from Erosyonz/feat/home
+    
+    Feat/home

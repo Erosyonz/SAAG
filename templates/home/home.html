@@ -158,71 +158,237 @@
                     Satellite Mode Active
                 </div>
 
-                <!-- FLOATING HERO CARDS OVERLAY (Positioned at the bottom of the map) -->
-                <div id="hero-cards-container" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[900] flex gap-6 overflow-x-auto pb-2 pointer-events-auto transition-opacity duration-300 max-w-full px-6">
+                <!-- FLOATING HERO CARDS OVERLAY (Positioned at the bottom center of the map) -->
+                <div id="hero-cards-container" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[900] flex gap-5 overflow-x-auto pb-3 pointer-events-auto transition-all duration-300 max-w-full px-6">
                     
-                    <!-- Card 1 -->
-                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] min-h-[200px] flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-lg shrink-0">⛰️</div>
-                        <div>
-                            <h4 class="text-sm font-bold text-slate-900">Babanag Ridge</h4>
-                            <p class="text-xs text-slate-500">Moderate · 8.5 km</p>
+                    <!-- Card 1: Babanag Ridge -->
+                    <div class="relative w-[300px] h-[200px] rounded-2xl overflow-hidden shadow-2xl border border-black/20 shrink-0 flex flex-col justify-end p-5 group cursor-pointer">
+                        <!-- Background Trail Image -->
+                        <img src="https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=600&q=80" alt="Babanag Ridge" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        
+                        <!-- Dark Gradient Overlay for Readability -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+
+                        <!-- Card Content -->
+                        <div class="relative z-10 text-white">
+                            <span class="inline-block px-2.5 py-1 bg-emerald-500/90 backdrop-blur-md text-[10px] font-semibold tracking-wider uppercase rounded-md mb-2">Moderate · 8.5 km</span>
+                            <h4 class="text-lg font-bold leading-snug">Babanag Ridge Trail</h4>
+                            <p class="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-emerald-400 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                </svg>
+                                Balamban, Cebu
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Card 2 -->
-                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-lg shrink-0">🌲</div>
-                        <div>
-                            <h4 class="text-sm font-bold text-slate-900">Mt. Kan-Irag Peak</h4>
-                            <p class="text-xs text-slate-500">Challenging · 12.2 km</p>
+                    <!-- Card 2: Mt. Kan-Irag Peak -->
+                    <div class="relative w-[300px] h-[200px] rounded-2xl overflow-hidden shadow-2xl border border-black/20 shrink-0 flex flex-col justify-end p-5 group cursor-pointer">
+                        <!-- Background Trail Image -->
+                        <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80" alt="Mt. Kan-Irag Peak" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+
+                        <div class="relative z-10 text-white">
+                            <span class="inline-block px-2.5 py-1 bg-amber-500/90 backdrop-blur-md text-[10px] font-semibold tracking-wider uppercase rounded-md mb-2">Challenging · 12.2 km</span>
+                            <h4 class="text-lg font-bold leading-snug">Mt. Kan-Irag Peak</h4>
+                            <p class="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-amber-400 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                </svg>
+                                Busay, Cebu City
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Card 3 -->
-                    <div class="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 min-w-[340px] flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-lg shrink-0">🌊</div>
-                        <div>
-                            <h4 class="text-sm font-bold text-slate-900">Cordova Baywalk</h4>
-                            <p class="text-xs text-slate-500">Easy · 3.1 km</p>
+                    <!-- Card 3: Cordova Baywalk -->
+                    <div class="relative w-[300px] h-[200px] rounded-2xl overflow-hidden shadow-2xl border border-black/20 shrink-0 flex flex-col justify-end p-5 group cursor-pointer">
+                        <!-- Background Trail Image -->
+                        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80" alt="Cordova Baywalk" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+
+                        <div class="relative z-10 text-white">
+                            <span class="inline-block px-2.5 py-1 bg-blue-500/90 backdrop-blur-md text-[10px] font-semibold tracking-wider uppercase rounded-md mb-2">Easy · 3.1 km</span>
+                            <h4 class="text-lg font-bold leading-snug">Cordova Baywalk Trail</h4>
+                            <p class="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-blue-400 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                </svg>
+                                Buagsong, Cordova
+                            </p>
                         </div>
                     </div>
 
                 </div>
 
-                <!-- RIGHT SIDE OVERLAY MODAL -->
-                <div id="location-modal" class="absolute top-0 right-0 h-full w-96 bg-white/95 backdrop-blur-md shadow-2xl z-[1000] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200 pointer-events-auto">
-                    <!-- Modal Header -->
-                    <div class="flex items-center justify-between p-4 border-b border-gray-100">
-                        <h3 class="font-bold text-slate-800 text-lg">Selected Location</h3>
-                        <button id="close-modal-btn" class="text-gray-400 hover:text-slate-700 p-1 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                            </svg>
+
+                <!-- ROUTE CREATION MODAL -->
+                <div id="route-modal"
+                    class="absolute top-0 right-0 h-full w-96 max-w-full bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-[1000] translate-x-full transition-transform duration-300 flex flex-col border-l border-zinc-800 text-white">
+
+                    <div class="flex items-center justify-between p-5 border-b border-zinc-800">
+                        <div>
+                            <h3 class="font-bold text-lg">Create New Route</h3>
+                            <p class="text-xs text-zinc-400">Configure your walking trail</p>
+                        </div>
+
+                        <button id="close-route-modal"
+                            class="text-zinc-400 hover:text-white p-2">
+                            ✕
                         </button>
                     </div>
 
-                    <!-- Modal Body / Content -->
-                    <div class="p-6 flex-1 overflow-y-auto space-y-4">
+                    <div class="p-6 flex-1 overflow-y-auto space-y-5">
+
                         <div>
-                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Coordinates</label>
-                            <p id="modal-coords" class="text-sm font-mono bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-slate-700">-</p>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                Route Name
+                            </label>
+
+                            <input type="text" id="route-name"
+                                placeholder="e.g. Cordova Coastal Trail"
+                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Location Title / Name</label>
-                            <input type="text" id="modal-title-input" placeholder="e.g. Mountain View Trailhead" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                Description
+                            </label>
+
+                            <textarea id="route-description" rows="3"
+                                placeholder="Describe your walking route..."
+                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm resize-none focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold uppercase text-slate-400 tracking-wider mb-1">Description / Details</label>
-                            <textarea id="modal-desc-input" rows="3" placeholder="Add trail details, elevation, or notes..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                Starting Coordinates
+                            </label>
+
+                            <div id="route-start-coordinates"
+                                class="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm font-mono text-emerald-400">
+                                Waiting for GPS...
+                            </div>
                         </div>
 
-                        <button id="save-location-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition-colors shadow-sm">
-                            Save Location
+                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                            <p class="text-xs text-emerald-400">
+                                Your current GPS location will be used as the starting point.
+                                Saving this route will automatically begin GPS tracking.
+                            </p>
+                        </div>
+
+                        <button id="save-route-btn"
+                            class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition">
+                            Save Starting Point & Start Recording
+                        </button>
+
+                    </div>
+                </div>
+
+
+                <!-- WAYPOINT CREATION MODAL -->
+                <div id="waypoint-modal"
+                    class="absolute top-0 right-0 h-full w-96 max-w-full bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-[1100] translate-x-full transition-transform duration-300 flex flex-col border-l border-zinc-800 text-white">
+
+                    <div class="flex items-center justify-between p-5 border-b border-zinc-800">
+                        <div>
+                            <h3 class="font-bold text-lg">Add Waypoint</h3>
+                            <p class="text-xs text-zinc-400">Highlight an important location</p>
+                        </div>
+
+                        <button id="close-waypoint-modal"
+                            class="text-zinc-400 hover:text-white p-2">
+                            ✕
                         </button>
                     </div>
+
+                    <div class="p-6 flex-1 overflow-y-auto space-y-5">
+
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                Location Spot Name
+                            </label>
+
+                            <input type="text" id="waypoint-name"
+                                placeholder="e.g. Scenic Viewpoint"
+                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                Spot Description
+                            </label>
+
+                            <textarea id="waypoint-description" rows="3"
+                                placeholder="Describe this important location..."
+                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                GPS Coordinates
+                            </label>
+
+                            <div id="waypoint-coordinates"
+                                class="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm font-mono text-blue-400">
+                                -
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
+                                Waypoint Photo
+                            </label>
+
+                            <label for="waypoint-photo"
+                                class="flex flex-col items-center justify-center h-32 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-blue-500 transition">
+
+                                <span class="text-2xl mb-2">📷</span>
+                                <span class="text-xs text-zinc-300">
+                                    Upload or take a photo
+                                </span>
+                                <span class="text-[10px] text-zinc-500">
+                                    PNG or JPG
+                                </span>
+
+                                <input type="file" id="waypoint-photo"
+                                    accept="image/png,image/jpeg"
+                                    capture="environment"
+                                    class="hidden">
+                            </label>
+
+                            <p id="waypoint-photo-name"
+                                class="text-xs text-zinc-500 mt-2"></p>
+                        </div>
+
+                        <button id="save-waypoint-btn"
+                            class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm transition">
+                            Save Waypoint
+                        </button>
+
+                    </div>
+                </div>
+
+
+                <!-- ROUTE TRACKING CONTROLS -->
+                <div id="route-controls"
+                    class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[950] hidden flex-wrap justify-center gap-3 w-max max-w-[95%]">
+
+                    <button id="add-waypoint-btn"
+                        class="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-xl text-sm font-semibold">
+                        + Add Waypoint
+                    </button>
+
+                    <button id="stop-route-btn"
+                        class="px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl shadow-xl text-sm font-semibold">
+                        Stop Recording
+                    </button>
+
                 </div>
 
             </section>
@@ -232,8 +398,8 @@
     </div>
 
     <!-- Custom Application JavaScript -->
-    <script src="{% static 'js/home/main.js' %}"></script>
-    <script src="{% static 'js/home/home.js' %}"></script>
+    <script src="{% static 'js/main.js' %}"></script>
+<script src="{% static 'js/home/home.js' %}"></script>
 
 </body>
 </html>
