@@ -15,6 +15,7 @@ let currentMarker = null;
 let walkingTrail = null;
 
 let waypointMarkers = [];
+let savedRouteLayers = [];
 
 let gpsWatcher = null;
 let isRecording = false;
@@ -24,6 +25,9 @@ let currentPosition = null;
 let waypointPosition = null;
 
 let routeData = null;
+let activeRouteId = null;
+let routeStartedAt = null;
+let coordinateSaveQueue = Promise.resolve();
 
 
 // ==========================================
@@ -61,6 +65,10 @@ function initMap() {
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         }
     ).addTo(map);
+
+    map.whenReady(() => {
+        loadSavedRoutes();
+    });
 
     L.control.zoom({
         position: 'bottomleft'
@@ -176,13 +184,28 @@ function showStartingPoint(lat, lng) {
 // ROUTE CREATION
 // ==========================================
 
-function createRoute() {
+function getCookie(name) {
+    const cookies = document.cookie.split(';');
+
+    for (let cookie of cookies) {
+        cookie = cookie.trim();
+
+        if (cookie.startsWith(name + '=')) {
+            return decodeURIComponent(
+                cookie.substring(name.length + 1)
+            );
+        }
+    }
+
+    return null;
+}
+
+
+async function createRoute() {
 
     if (!selectedStartPoint) {
-
         alert('Please retrieve your GPS starting location first.');
         return;
-
     }
 
     const routeName =
@@ -192,117 +215,183 @@ function createRoute() {
         document.getElementById('route-description').value.trim();
 
     if (!routeName) {
-
         alert('Please enter a route name.');
         return;
-
     }
 
     const [lat, lng] = selectedStartPoint;
 
-    // Route object matching your ERD
-    routeData = {
+    const saveButton = document.getElementById('save-route-btn');
 
-        RouteID: null, // Assigned by Django/database later
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving Route...';
 
-        UserID: null, // Assigned from authenticated user later
+    try {
 
-        RouteName: routeName,
+        const response = await fetch('/home/routes/create/', {
+            method: 'POST',
 
-        Description: description,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
 
-        TotalDistance: 0,
+            body: JSON.stringify({
+                name: routeName,
+                description: description,
+                latitude: lat,
+                longitude: lng
+            })
+        });
 
-        Elevation: 0,
+        const result = await response.json();
 
-        EstimatedTime: 0,
-
-        CreatedAt: new Date(),
-
-        Coordinates: [],
-
-        Waypoints: []
-
-    };
-
-
-    // Save the starting GPS coordinate
-    addRouteCoordinate(lat, lng);
-
-    // Initialize the current GPS position
-    currentPosition = [lat, lng];
-
-    // Create the actual route line
-    walkingTrail = L.polyline(
-        [[lat, lng]],
-        {
-            color: '#10b981',
-            weight: 5,
-            opacity: 0.95,
-            lineCap: 'round',
-            lineJoin: 'round'
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Unable to save route.');
         }
-    ).addTo(map);
 
+        // Store the actual database RouteID
+        activeRouteId = result.route_id;
 
-    // Starting marker
-    if (startMarker) {
-        map.removeLayer(startMarker);
+        // Initialize local route data
+        routeData = {
+            RouteID: activeRouteId,
+            RouteName: routeName,
+            Description: description,
+            TotalDistance: 0,
+            Elevation: 0,
+            EstimatedTime: 0,
+            Coordinates: [{
+                Latitude: lat,
+                Longitude: lng,
+                Elevation: 0,
+                PointOrder: 1
+            }],
+            Waypoints: []
+        };
+
+        currentPosition = [lat, lng];
+
+        routeStartedAt = Date.now();
+
+        // Create route line
+        walkingTrail = L.polyline(
+            [[lat, lng]],
+            {
+                color: '#10b981',
+                weight: 5,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }
+        ).addTo(map);
+
+        if (startMarker) {
+            map.removeLayer(startMarker);
+        }
+
+        startMarker = L.marker([lat, lng])
+            .addTo(map)
+            .bindPopup('Route Starting Point');
+
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+        }
+
+        currentMarker = L.circleMarker([lat, lng], {
+            radius: 7,
+            color: '#ffffff',
+            weight: 3,
+            fillColor: '#10b981',
+            fillOpacity: 1
+        }).addTo(map);
+
+        isRecording = true;
+
+        closeRouteModal();
+
+        document.getElementById('route-controls')
+            .classList.remove('hidden');
+
+        // Start GPS only after successful database creation
+        startGPSTracking();
+
+        console.log('Route saved:', activeRouteId);
+
+    } catch (error) {
+
+        console.error('Route creation error:', error);
+        alert(error.message);
+
+    } finally {
+
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save Starting Point & Start Recording';
+
     }
-
-    startMarker = L.marker([lat, lng])
-        .addTo(map)
-        .bindPopup('Route Starting Point');
-
-
-    // Current GPS marker
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-    }
-
-    currentMarker = L.circleMarker([lat, lng], {
-        radius: 7,
-        color: '#ffffff',
-        weight: 3,
-        fillColor: '#10b981',
-        fillOpacity: 1
-    }).addTo(map);
-
-
-    // Start recording
-    isRecording = true;
-
-    closeRouteModal();
-
-    document.getElementById('route-controls').classList.remove('hidden');
-
-    startGPSTracking();
-
-    console.log('Route created:', routeData);
-
 }
+
 
 
 // ==========================================
 // RECORD ROUTE COORDINATES
 // ==========================================
 
-function addRouteCoordinate(lat, lng) {
 
-    if (!routeData) return;
+function addRouteCoordinate(lat, lng, elevation = 0) {
 
-    const pointOrder = routeData.Coordinates.length + 1;
+    if (!routeData || !activeRouteId) return;
 
-    routeData.Coordinates.push({
-
+    const coordinate = {
         Latitude: lat,
         Longitude: lng,
-        Elevation: 0, // Replace with GPS altitude when available
-        PointOrder: pointOrder
+        Elevation: elevation,
+        PointOrder: routeData.Coordinates.length + 1
+    };
+
+    // Keep a local copy for map calculations
+    routeData.Coordinates.push(coordinate);
+
+    // Queue requests to preserve GPS point ordering
+    coordinateSaveQueue = coordinateSaveQueue.then(async () => {
+
+        const response = await fetch(
+            `/home/routes/${activeRouteId}/coordinates/`,
+            {
+                method: 'POST',
+
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+
+                body: JSON.stringify({
+                    latitude: lat,
+                    longitude: lng,
+                    elevation: elevation
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Coordinate save failed.');
+        }
+
+        coordinate.PointOrder = result.point_order;
+
+        console.log('GPS coordinate saved:', result);
+
+    }).catch(error => {
+
+        console.error('GPS coordinate saving failed:', error);
 
     });
 
+    return coordinateSaveQueue;
 }
+
 
 
 // ==========================================
@@ -347,7 +436,11 @@ function startGPSTracking() {
 
             if (distance >= 3) {
 
-                addRouteCoordinate(lat, lng);
+                addRouteCoordinate(
+                    lat,
+                    lng,
+                    position.coords.altitude || 0
+                );
 
                 walkingTrail.addLatLng(newPosition);
 
@@ -417,13 +510,12 @@ function openWaypointModal() {
 // SAVE WAYPOINT
 // ==========================================
 
-function saveWaypoint() {
 
-    if (!isRecording || !waypointPosition) {
+async function saveWaypoint() {
 
+    if (!isRecording || !waypointPosition || !activeRouteId) {
         alert('No active route or waypoint position found.');
         return;
-
     }
 
     const name =
@@ -438,48 +530,80 @@ function saveWaypoint() {
     const photo = photoInput.files[0] || null;
 
     if (!name) {
-
         alert('Please enter a waypoint name.');
         return;
-
     }
 
-    const lat = waypointPosition[0];
-    const lng = waypointPosition[1];
+    const [lat, lng] = waypointPosition;
 
-    // Waypoint object matching your ERD
-    const waypoint = {
+    const saveButton = document.getElementById('save-waypoint-btn');
 
-        RouteWP_ID: null,
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving...';
 
-        RouteID: routeData.RouteID,
+    try {
 
-        LocationSpotName: name,
+        const formData = new FormData();
 
-        SpotDescription: description,
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('latitude', lat);
+        formData.append('longitude', lng);
 
-        SpotImage: photo,
+        if (photo) {
+            formData.append('photo', photo);
+        }
 
-        Latitude: lat,
+        const response = await fetch(
+            `/home/routes/${activeRouteId}/waypoints/`,
+            {
+                method: 'POST',
 
-        Longitude: lng
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
 
-    };
+                body: formData
+            }
+        );
 
+        const result = await response.json();
 
-    // Save waypoint to current route
-    routeData.Waypoints.push(waypoint);
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Unable to save waypoint.');
+        }
 
+        const waypoint = {
+            RouteWP_ID: result.waypoint_id,
+            RouteID: activeRouteId,
+            LocationSpotName: name,
+            SpotDescription: description,
+            SpotImage: photo,
+            Latitude: lat,
+            Longitude: lng
+        };
 
-    // Create separate waypoint marker
-    createWaypointMarker(waypoint);
+        routeData.Waypoints.push(waypoint);
 
+        createWaypointMarker(waypoint);
 
-    console.log('Waypoint added:', waypoint);
+        console.log('Waypoint saved:', result);
 
-    closeWaypointModal();
+        closeWaypointModal();
 
+    } catch (error) {
+
+        console.error('Waypoint saving error:', error);
+        alert(error.message);
+
+    } finally {
+
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save Waypoint';
+
+    }
 }
+
 
 
 // ==========================================
@@ -521,9 +645,9 @@ function createWaypointMarker(waypoint) {
 
 
     const marker = L.marker(
-        [waypoint.Latitude, waypoint.Longitude],
-        { icon: icon }
-    ).addTo(map);
+        [waypoint.latitude, waypoint.longitude],
+        { icon: waypointIcon }
+    ).addTo(routeDetailsLayer);
 
 
     // Build popup safely
@@ -564,37 +688,80 @@ function createWaypointMarker(waypoint) {
 // STOP ROUTE RECORDING
 // ==========================================
 
-function stopRoute() {
+
+async function stopRoute() {
 
     if (!isRecording) return;
 
     isRecording = false;
 
     if (gpsWatcher !== null) {
-
         navigator.geolocation.clearWatch(gpsWatcher);
-
         gpsWatcher = null;
+    }
+
+    document.getElementById('route-controls')
+        .classList.add('hidden');
+
+    try {
+
+        // Wait for pending GPS requests
+        await coordinateSaveQueue;
+
+        const elapsedMinutes = Math.floor(
+            (Date.now() - routeStartedAt) / 60000
+        );
+
+        const response = await fetch(
+            `/home/routes/${activeRouteId}/finish/`,
+            {
+                method: 'POST',
+
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+
+                body: JSON.stringify({
+                    total_distance: routeData.TotalDistance,
+                    elevation: routeData.Elevation || 0,
+                    estimated_time: elapsedMinutes
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Unable to complete route.');
+        }
+
+        routeData.Status = 'Completed';
+
+        console.log('Completed Route:', routeData);
+
+        alert(
+            `Route "${routeData.RouteName}" completed!\n` +
+            `Distance: ${routeData.TotalDistance.toFixed(2)} km\n` +
+            `Coordinates: ${routeData.Coordinates.length}\n` +
+            `Waypoints: ${routeData.Waypoints.length}`
+        );
+
+        activeRouteId = null;
+
+    } catch (error) {
+
+        console.error('Route completion error:', error);
+
+        alert(
+            'GPS recording stopped, but the route summary could not be saved: ' +
+            error.message
+        );
 
     }
 
-    routeData.Status = 'Completed';
-
-    routeData.CompletedAt = new Date();
-
-    document.getElementById('route-controls').classList.add('hidden');
-
-    // Preserve completed trail
-    console.log('Completed Route:', routeData);
-
-    alert(
-        `Route "${routeData.RouteName}" completed!\n` +
-        `Distance: ${routeData.TotalDistance.toFixed(2)} km\n` +
-        `Coordinates: ${routeData.Coordinates.length}\n` +
-        `Waypoints: ${routeData.Waypoints.length}`
-    );
-
 }
+
 
 
 // ==========================================
@@ -707,6 +874,276 @@ function hideHeroCards() {
     }
 
 }
+
+
+// ==========================================
+// DISPLAY SAVED ROUTES
+// ==========================================
+
+async function loadSavedRoutes() {
+
+    try {
+
+        const response = await fetch('/SA-AG/api/routes/map/');
+
+        if (!response.ok) {
+            throw new Error('Unable to retrieve saved routes.');
+        }
+
+        const result = await response.json();
+
+        // Remove previously displayed routes
+        savedRouteLayers.forEach(layer => {
+            map.removeLayer(layer);
+        });
+
+        savedRouteLayers = [];
+
+        // Display each route
+        result.routes.forEach(route => {
+            displaySavedRoute(route);
+        });
+
+        console.log('Saved routes loaded:', result.routes);
+
+    } catch (error) {
+
+        console.error('Saved route loading error:', error);
+
+    }
+}
+
+
+// ==========================================
+// DISPLAY ONE SAVED ROUTE
+// ==========================================
+
+function displaySavedRoute(route) {
+
+    const coordinates = route.coordinates || [];
+    const waypoints = route.waypoints || [];
+
+    const routeDetailsLayer = L.layerGroup();
+    let routeDetailsVisible = false;
+
+    if (coordinates.length === 0) {
+        console.warn('Route has no starting coordinate:', route.name);
+        return;
+    }
+
+    // --------------------------------------
+    // 1. STARTING POINT PIN
+    // --------------------------------------
+
+    const startPoint = coordinates[0];
+
+    const startIcon = L.divIcon({
+        className: '',
+        html: `
+            <div style="
+                width: 38px;
+                height: 38px;
+                background: #f5a623;
+                border: 3px solid white;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 3px 10px rgba(0,0,0,.4);
+            ">
+                <span style="transform: rotate(45deg);">📍</span>
+            </div>
+        `,
+        iconSize: [38, 38],
+        iconAnchor: [19, 38]
+    });
+
+    const startMarker = L.marker(
+        [startPoint.latitude, startPoint.longitude],
+        {
+            icon: startIcon,
+            zIndexOffset: 1000
+        }
+    ).addTo(map);
+
+    startMarker.bindPopup(`
+        <div>
+            <strong>${escapeMapText(route.name)}</strong>
+            <p>${escapeMapText(route.description || '')}</p>
+            <small>
+                ${route.total_distance} km ·
+                ${route.estimated_time} minutes
+            </small>
+        </div>
+    `);
+
+    savedRouteLayers.push(startMarker);
+
+
+    // --------------------------------------
+    // 2. DRAW THE RECORDED GPS PATH
+    // --------------------------------------
+
+    const routePoints = coordinates.map(point => [
+        point.latitude,
+        point.longitude
+    ]);
+
+    if (routePoints.length >= 2) {
+
+        const routeLine = L.polyline(routePoints, {
+            color: '#f5a623',
+            weight: 5,
+            opacity: 0.9,
+            lineCap: 'round',
+            lineJoin: 'round'
+        }).addTo(routeDetailsLayer);
+
+        savedRouteLayers.push(routeDetailsLayer);
+    }
+
+
+    // --------------------------------------
+    // 3. DISPLAY WAYPOINT MARKERS
+    // --------------------------------------
+waypoints.forEach((waypoint, index) => {
+
+    const latitude = Number(waypoint.latitude);
+    const longitude = Number(waypoint.longitude);
+
+    console.log(`Waypoint ${index + 1}:`, {
+        name: waypoint.name,
+        latitude,
+        longitude,
+        valid: Number.isFinite(latitude) &&
+               Number.isFinite(longitude)
+    });
+
+    if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+    ) {
+        console.warn('Invalid waypoint:', waypoint);
+        return;
+    }
+
+    const waypointIcon = L.divIcon({
+        className: '',
+        html: `
+            <div style="
+                width: 30px;
+                height: 30px;
+                background: #2563eb;
+                border: 2px solid white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+                box-shadow: 0 2px 8px rgba(0,0,0,.4);
+            ">★</div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+    });
+
+    const marker = L.marker(
+        [latitude, longitude],
+        { icon: waypointIcon }
+    ).addTo(routeDetailsLayer);
+
+    console.log('Marker added to map:', map.hasLayer(marker));
+
+    const popup = document.createElement('div');
+
+    const title = document.createElement('strong');
+    title.textContent = waypoint.name || 'Unnamed waypoint';
+
+    const description = document.createElement('p');
+    description.textContent =
+        waypoint.description || 'No description available.';
+
+    popup.appendChild(title);
+    popup.appendChild(description);
+
+    if (waypoint.image) {
+        const image = document.createElement('img');
+        image.src = waypoint.image;
+        image.alt = waypoint.name || 'Waypoint image';
+        image.style.width = '180px';
+        image.style.marginTop = '8px';
+        image.style.borderRadius = '8px';
+        popup.appendChild(image);
+    }
+
+    marker.bindPopup(popup);
+});
+
+   // --------------------------------------
+// 4. TOGGLE ROUTE DETAILS
+// --------------------------------------
+
+startMarker.on('click', () => {
+
+    if (routeDetailsVisible) {
+
+        // Hide this route's waypoints and path
+        map.removeLayer(routeDetailsLayer);
+        routeDetailsVisible = false;
+
+        return;
+    }
+
+    // Show this route's waypoints and path
+    routeDetailsLayer.addTo(map);
+    routeDetailsVisible = true;
+
+    // Zoom to this route's locations
+    const allPoints = [
+        ...routePoints,
+        ...waypoints.map(waypoint => [
+            Number(waypoint.latitude),
+            Number(waypoint.longitude)
+        ])
+    ];
+
+    if (allPoints.length > 0) {
+
+        const bounds = L.latLngBounds(allPoints);
+
+        map.fitBounds(bounds, {
+            padding: [60, 60],
+            maxZoom: 16,
+            animate: true
+        });
+
+    }
+
+});
+
+}
+
+
+// ==========================================
+// ESCAPE POPUP TEXT
+// ==========================================
+
+function escapeMapText(value) {
+
+    return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    })[character]);
+
+}
+
+
+
 
 function showHeroCards() {
 
