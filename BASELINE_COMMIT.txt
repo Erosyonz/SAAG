@@ -1,1 +1,1 @@
-da8cae1b3bb6584b818ee21745bab850715d00fa | Erosyonz | 2026-11-11 01:02:43 +0800 | style: heroes for fetching the trail
+8fae2de18176e9a4f409326d31301c915b61b618 | Erosyonz | 2026-11-14 23:22:06 +0800 | feat: database integrated for routes and waypoints and route pin UI
