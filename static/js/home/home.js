@@ -1,241 +1,349 @@
-
 /**
  * home.js
- * SA-AG - Route Creation and Waypoint Tracking
+ * SA-AG - Trail map: saved trails, route recording, waypoints
  */
 
 // ==========================================
-// MAP VARIABLES
+// SETTINGS (web addresses must match urls.py)
+// ==========================================
+
+const URLS = {
+    savedRoutes: '/SA-AG/api/routes/map/',
+    createRoute: '/home/routes/create/',
+    saveCoordinate: (routeId) => `/home/routes/${routeId}/coordinates/`,
+    saveWaypoint: (routeId) => `/home/routes/${routeId}/waypoints/`,
+    finishRoute: (routeId) => `/home/routes/${routeId}/finish/`
+};
+
+const DEFAULT_MAP_CENTER = [10.3157, 123.8907];
+const MIN_STEP_METERS = 5;        // ignore GPS jitter smaller than this
+const MAX_ACCURACY_METERS = 50;   // ignore very inaccurate GPS readings
+const MIN_CLIMB_METERS = 3;       // count a climb only if it is at least this much
+const SHOW_START_END_LINK = true; // dashed straight line from start to end (set false to hide)
+const ROUTE_LOOP_METERS = 25;     // if a route ends this close to its start, treat it as a loop
+
+
+// ==========================================
+// STATE
 // ==========================================
 
 let map;
 
-let startMarker = null;
-let currentMarker = null;
-let walkingTrail = null;
+// Saved trails from the database: routeId -> { route, startMarker, detailsLayer, points }
+const savedTrails = new Map();
+let focusedRouteId = null;
 
-let waypointMarkers = [];
-let savedRouteLayers = [];
+// Search and cards
+const MAX_TRAIL_CARDS = 3;
+let allRoutes = [];
+let searchText = '';
+const placeNames = new Map();   // routeId -> "Town, Province"
 
-let gpsWatcher = null;
+// Live recording
 let isRecording = false;
-
-let selectedStartPoint = null;
-let currentPosition = null;
-let waypointPosition = null;
-
-let routeData = null;
 let activeRouteId = null;
+let routeData = null;
 let routeStartedAt = null;
+let lastAltitude = null;
+let followUser = true;
+
+let liveLayer = null;
+let liveTrail = null;
+let liveTrailOutline = null;
+let liveLink = null;
+let liveStart = null;
+let liveDot = null;
+let gpsWatcher = null;
+let hudTimer = null;
 let coordinateSaveQueue = Promise.resolve();
+
+// Create-route panel
+let startPoint = null;
+let previewMarker = null;
+
+// Waypoint panel
+let currentPosition = null;
+let waypointPoint = null;
 
 
 // ==========================================
-// INITIALIZE
+// SMALL HELPERS
+// ==========================================
+
+const byId = (id) => document.getElementById(id);
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    })[character]);
+}
+
+function getCookie(name) {
+    for (let cookie of document.cookie.split(';')) {
+        cookie = cookie.trim();
+        if (cookie.startsWith(name + '=')) {
+            return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+    }
+    return null;
+}
+
+function formatMinutes(totalMinutes) {
+    const minutes = Math.max(0, Math.round(totalMinutes));
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+function getDistance(lat1, lon1, lat2, lon2) {
+    const earthRadius = 6371000;
+    const toRadians = (value) => value * Math.PI / 180;
+
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+
+    return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function showToast(message, type = 'info') {
+    const area = byId('toast-area');
+    if (!area) return;
+
+    const borderColor = {
+        success: 'border-emerald-400',
+        error: 'border-red-400',
+        info: 'border-white/30'
+    }[type] || 'border-white/30';
+
+    const toast = document.createElement('div');
+    toast.className =
+        `rounded-xl border ${borderColor} bg-black/95 text-white text-sm px-4 py-3 shadow-2xl backdrop-blur ` +
+        'transition-opacity duration-300';
+    toast.textContent = message;
+    area.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 4500);
+}
+
+
+// ==========================================
+// START UP
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-
     initMap();
-    initModalEvents();
-
+    initEvents();
+    loadSavedRoutes();
 });
 
 
 // ==========================================
-// MAP INITIALIZATION
+// MAP
 // ==========================================
 
 function initMap() {
-
-    const container = document.getElementById('mapbox-container');
-
+    const container = byId('mapbox-container');
     if (!container) return;
 
     map = L.map(container, {
         zoomControl: false,
         attributionControl: false
-    }).setView([10.3157, 123.8907], 13);
+    }).setView(DEFAULT_MAP_CENTER, 13);
 
-    /// Satellite layer
     L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-            maxZoom: 19,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        }
+        { maxZoom: 19 }
     ).addTo(map);
 
-    map.whenReady(() => {
-        loadSavedRoutes();
-    });
+    L.control.zoom({ position: 'topleft' }).addTo(map);
 
-    L.control.zoom({
-        position: 'bottomleft'
-    }).addTo(map);
-
-
-    // Map click retrieves user's actual GPS position
+    // Clicking empty map just un-selects the trail (it no longer opens the form)
     map.on('click', () => {
-
-        console.log('Map clicked');
-
-        if (isRecording) return;
-
-        hideHeroCards();
-
-        getStartingLocation();
-
+        if (!isRecording) clearFocusedTrail();
     });
 
-
-    window.addEventListener('resize', () => {
-        map.invalidateSize();
+    // If the walker drags the map, stop auto-following them
+    map.on('dragstart', () => {
+        if (isRecording) followUser = false;
     });
 
+    window.addEventListener('resize', () => map.invalidateSize());
 }
 
+
 // ==========================================
-// GET STARTING LOCATION
+// SIDE PANELS (open / close)
 // ==========================================
 
-function showStartCoordinatesText(message) {
-    const coordinatesBox = document.getElementById('route-start-coordinates');
+const PANEL_HIDDEN_CLASSES = ['translate-x-full', 'invisible', 'pointer-events-none'];
 
-    if (coordinatesBox) {
-        coordinatesBox.textContent = message;
-    } else {
-        console.warn("Missing element: #route-start-coordinates. Check that the right home.html is being served.");
+function isPanelOpen(panelId) {
+    return !byId(panelId).classList.contains('translate-x-full');
+}
+
+function openPanel(panelId) {
+    byId(panelId).classList.remove(...PANEL_HIDDEN_CLASSES);
+    byId('panel-backdrop').classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function closePanel(panelId) {
+    byId(panelId).classList.add(...PANEL_HIDDEN_CLASSES);
+
+    const anyOpen = isPanelOpen('route-modal') || isPanelOpen('waypoint-modal');
+    if (!anyOpen) {
+        byId('panel-backdrop').classList.add('opacity-0', 'pointer-events-none');
     }
 }
 
-function getStartingLocation() {
+function closeAllPanels() {
+    if (isPanelOpen('route-modal')) closeRouteModal();
+    if (isPanelOpen('waypoint-modal')) closeWaypointModal();
+}
 
-    // Open the panel FIRST so the user always sees it
-    openRouteModal();
 
-    showStartCoordinatesText('Getting GPS location...');
+// ==========================================
+// NEW ROUTE PANEL
+// ==========================================
+
+function openRouteModal() {
+    if (isRecording) {
+        showToast('Finish your current route before starting a new one.', 'info');
+        return;
+    }
+
+    byId('route-name').value = '';
+    byId('route-description').value = '';
+
+    openPanel('route-modal');
+    requestStartLocation();
+
+    setTimeout(() => byId('route-name').focus(), 320);
+}
+
+function closeRouteModal() {
+    closePanel('route-modal');
+
+    // Throw away the unsaved preview pin
+    if (previewMarker) {
+        map.removeLayer(previewMarker);
+        previewMarker = null;
+    }
+    startPoint = null;
+}
+
+function setGpsStatus(state, message) {
+    const dot = byId('gps-dot');
+    const text = byId('route-start-coordinates');
+    const retryButton = byId('gps-retry-btn');
+    const saveButton = byId('save-route-btn');
+
+    const dotColor = {
+        searching: 'bg-amber-400 animate-pulse',
+        ready: 'bg-emerald-400',
+        error: 'bg-red-400'
+    }[state];
+
+    dot.className = `w-3 h-3 rounded-full shrink-0 ${dotColor}`;
+    text.textContent = message;
+
+    retryButton.classList.toggle('hidden', state !== 'error');
+    saveButton.disabled = state !== 'ready';
+}
+
+function describeGpsError(error) {
+    if (error.code === 1) return 'Location is blocked. Allow location for this site in your browser settings, then try again.';
+    if (error.code === 2) return 'Your location is not available right now. Try again outdoors.';
+    if (error.code === 3) return 'Finding your location took too long. Try again.';
+    return 'Could not get your location.';
+}
+
+function requestStartLocation() {
+    startPoint = null;
+    setGpsStatus('searching', 'Finding your location...');
 
     if (!navigator.geolocation) {
-        showStartCoordinatesText('Geolocation is not supported.');
-        alert('Your browser does not support GPS location.');
+        setGpsStatus('error', 'This browser does not support GPS.');
         return;
     }
 
     navigator.geolocation.getCurrentPosition(
-
         (position) => {
+            // The panel might have been closed while we waited
+            if (!isPanelOpen('route-modal')) return;
+
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
 
-            selectedStartPoint = [lat, lng];
+            startPoint = [lat, lng];
             currentPosition = [lat, lng];
 
-            showStartingPoint(lat, lng);
-
-            showStartCoordinatesText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+            showPreviewPin(lat, lng);
+            setGpsStatus('ready', `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
         },
-
         (error) => {
-            selectedStartPoint = null;
-
-            showStartCoordinatesText('Unable to retrieve GPS location.');
-
-            console.error('GPS Error:', error.code, error.message);
-            alert('Unable to get your location. Please check browser location permissions.');
+            console.error('GPS error:', error.code, error.message);
+            if (!isPanelOpen('route-modal')) return;
+            setGpsStatus('error', describeGpsError(error));
         },
-
-        {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 }
 
+function showPreviewPin(lat, lng) {
+    if (previewMarker) map.removeLayer(previewMarker);
 
+    previewMarker = L.marker([lat, lng], { icon: createStartIcon(true), zIndexOffset: 1000 })
+        .addTo(map)
+        .bindPopup('Your starting point', { autoPan: false });
 
-// ==========================================
-// STARTING POINT MARKER
-// ==========================================
-
-function showStartingPoint(lat, lng) {
-
-    const position = [lat, lng];
-
-    if (startMarker) {
-        map.removeLayer(startMarker);
-    }
-
-    startMarker = L.marker(position, {
-        zIndexOffset: 1000
-    }).addTo(map);
-
-    startMarker.bindPopup('Starting Point');
-
-    map.setView(position, 17, {
-        animate: true
-    });
-
+    map.flyTo([lat, lng], 17, { duration: 0.8 });
 }
 
 
 // ==========================================
-// ROUTE CREATION
+// CREATE ROUTE
 // ==========================================
-
-function getCookie(name) {
-    const cookies = document.cookie.split(';');
-
-    for (let cookie of cookies) {
-        cookie = cookie.trim();
-
-        if (cookie.startsWith(name + '=')) {
-            return decodeURIComponent(
-                cookie.substring(name.length + 1)
-            );
-        }
-    }
-
-    return null;
-}
-
 
 async function createRoute() {
-
-    if (!selectedStartPoint) {
-        alert('Please retrieve your GPS starting location first.');
+    if (!startPoint) {
+        showToast('Wait for your GPS location first.', 'error');
         return;
     }
 
-    const routeName =
-        document.getElementById('route-name').value.trim();
-
-    const description =
-        document.getElementById('route-description').value.trim();
+    const routeName = byId('route-name').value.trim();
+    const description = byId('route-description').value.trim();
 
     if (!routeName) {
-        alert('Please enter a route name.');
+        showToast('Please enter a route name.', 'error');
+        byId('route-name').focus();
         return;
     }
 
-    const [lat, lng] = selectedStartPoint;
-
-    const saveButton = document.getElementById('save-route-btn');
+    const [lat, lng] = startPoint;
+    const saveButton = byId('save-route-btn');
 
     saveButton.disabled = true;
-    saveButton.textContent = 'Saving Route...';
+    saveButton.textContent = 'Starting...';
 
     try {
-
-        const response = await fetch('/home/routes/create/', {
+        const response = await fetch(URLS.createRoute, {
             method: 'POST',
-
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-
             body: JSON.stringify({
                 name: routeName,
                 description: description,
@@ -250,128 +358,140 @@ async function createRoute() {
             throw new Error(result.message || 'Unable to save route.');
         }
 
-        // Store the actual database RouteID
         activeRouteId = result.route_id;
 
-        // Initialize local route data
         routeData = {
             RouteID: activeRouteId,
             RouteName: routeName,
-            Description: description,
             TotalDistance: 0,
-            Elevation: 0,
-            EstimatedTime: 0,
-            Coordinates: [{
-                Latitude: lat,
-                Longitude: lng,
-                Elevation: 0,
-                PointOrder: 1
-            }],
+            ElevationGain: 0,
+            Coordinates: [{ Latitude: lat, Longitude: lng, Elevation: 0, PointOrder: 1 }],
             Waypoints: []
         };
 
         currentPosition = [lat, lng];
-
         routeStartedAt = Date.now();
+        lastAltitude = null;
+        followUser = true;
 
-        // Create route line
-        walkingTrail = L.polyline(
-            [[lat, lng]],
-            {
-                color: '#10b981',
-                weight: 5,
-                opacity: 0.95,
-                lineCap: 'round',
-                lineJoin: 'round'
-            }
-        ).addTo(map);
-
-        if (startMarker) {
-            map.removeLayer(startMarker);
-        }
-
-        startMarker = L.marker([lat, lng])
-            .addTo(map)
-            .bindPopup('Route Starting Point');
-
-        if (currentMarker) {
-            map.removeLayer(currentMarker);
-        }
-
-        currentMarker = L.circleMarker([lat, lng], {
-            radius: 7,
-            color: '#ffffff',
-            weight: 3,
-            fillColor: '#10b981',
-            fillOpacity: 1
-        }).addTo(map);
-
-        isRecording = true;
+        beginRecordingScreen(lat, lng);
 
         closeRouteModal();
-
-        document.getElementById('route-controls')
-            .classList.remove('hidden');
-
-        // Start GPS only after successful database creation
         startGPSTracking();
 
-        console.log('Route saved:', activeRouteId);
-
     } catch (error) {
-
         console.error('Route creation error:', error);
-        alert(error.message);
-
+        showToast(error.message, 'error');
     } finally {
-
-        saveButton.disabled = false;
-        saveButton.textContent = 'Save Starting Point & Start Recording';
-
+        saveButton.textContent = 'Start recording';
+        // Button state is reset by setGpsStatus the next time the panel opens
+        saveButton.disabled = !startPoint;
     }
 }
 
+function beginRecordingScreen(lat, lng) {
+    clearFocusedTrail();
+
+    liveLayer = L.layerGroup().addTo(map);
+
+    liveStart = [lat, lng];
+
+    // Dashed line from the start to where you are now
+    liveLink = L.polyline([liveStart, liveStart], {
+        color: '#ffffff',
+        weight: 2,
+        opacity: 0.85,
+        dashArray: '4 10',
+        interactive: false
+    }).addTo(liveLayer);
+
+    // White outline under the green line so it stands out on satellite photos
+    liveTrailOutline = L.polyline([liveStart], {
+        color: '#ffffff',
+        weight: 11,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+        bubblingMouseEvents: false
+    }).addTo(liveLayer);
+
+    liveTrail = L.polyline([liveStart], {
+        color: '#10b981',
+        weight: 6,
+        opacity: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+        bubblingMouseEvents: false
+    }).addTo(liveLayer);
+
+    L.marker(liveStart, { icon: createStartIcon(false), zIndexOffset: 900 })
+        .addTo(liveLayer)
+        .bindPopup('Route starting point', { autoPan: false })
+        .bindTooltip('Start', PIN_TAG_OPTIONS);
+
+    liveDot = L.marker([lat, lng], {
+        icon: L.divIcon({ className: '', html: '<div class="live-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+        zIndexOffset: 1100
+    }).addTo(liveLayer);
+
+    isRecording = true;
+
+    byId('route-controls').classList.remove('hidden');
+    byId('route-controls').classList.add('flex');
+    byId('recording-hud').classList.remove('hidden');
+    byId('recording-hud').classList.add('flex');
+    byId('new-route-btn').classList.add('hidden');
+    byId('search-box').classList.add('hidden');
+    byId('hero-cards-container').classList.add('hidden');
+
+    updateRecordingHud();
+    hudTimer = setInterval(updateRecordingHud, 1000);
+}
+
+function updateRecordingHud() {
+    if (!routeData) return;
+
+    const seconds = Math.floor((Date.now() - routeStartedAt) / 1000);
+    const minutesText = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const secondsText = String(seconds % 60).padStart(2, '0');
+
+    byId('hud-distance').textContent = routeData.TotalDistance.toFixed(2);
+    byId('hud-time').textContent = `${minutesText}:${secondsText}`;
+    byId('hud-points').textContent = routeData.Coordinates.length;
+}
 
 
 // ==========================================
-// RECORD ROUTE COORDINATES
+// GPS TRACKING
 // ==========================================
 
-
-function addRouteCoordinate(lat, lng, elevation = 0) {
-
+function addRouteCoordinate(lat, lng, altitude) {
     if (!routeData || !activeRouteId) return;
 
+    const routeId = activeRouteId;
     const coordinate = {
         Latitude: lat,
         Longitude: lng,
-        Elevation: elevation,
+        Elevation: Math.round(altitude || 0),
         PointOrder: routeData.Coordinates.length + 1
     };
 
-    // Keep a local copy for map calculations
     routeData.Coordinates.push(coordinate);
 
-    // Queue requests to preserve GPS point ordering
+    // One request at a time keeps the points in the right order
     coordinateSaveQueue = coordinateSaveQueue.then(async () => {
-
-        const response = await fetch(
-            `/home/routes/${activeRouteId}/coordinates/`,
-            {
-                method: 'POST',
-
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-
-                body: JSON.stringify({
-                    latitude: lat,
-                    longitude: lng,
-                    elevation: elevation
-                })
-            }
-        );
+        const response = await fetch(URLS.saveCoordinate(routeId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                latitude: lat,
+                longitude: lng,
+                elevation: coordinate.Elevation
+            })
+        });
 
         const result = await response.json();
 
@@ -381,191 +501,178 @@ function addRouteCoordinate(lat, lng, elevation = 0) {
 
         coordinate.PointOrder = result.point_order;
 
-        console.log('GPS coordinate saved:', result);
-
-    }).catch(error => {
-
-        console.error('GPS coordinate saving failed:', error);
-
+    }).catch((error) => {
+        console.error('GPS point saving failed:', error);
     });
-
-    return coordinateSaveQueue;
 }
 
-
-
-// ==========================================
-// GPS TRACKING
-// ==========================================
-
 function startGPSTracking() {
-
     if (!navigator.geolocation) {
-        alert('GPS tracking is unavailable.');
+        showToast('GPS tracking is not available in this browser.', 'error');
         return;
     }
 
     gpsWatcher = navigator.geolocation.watchPosition(
-
         (position) => {
-
             if (!isRecording) return;
 
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
-
-            if (accuracy > 50) return;
-
+            const altitude = position.coords.altitude;
             const newPosition = [lat, lng];
 
             currentPosition = newPosition;
+            liveDot.setLatLng(newPosition);
 
-            const coordinates = routeData.Coordinates;
+            if (followUser) map.panTo(newPosition, { animate: true });
 
-            const previous = coordinates[coordinates.length - 1];
+            // Skip weak readings
+            if (accuracy > MAX_ACCURACY_METERS) return;
 
-            if (!previous) return;
+            const previous = routeData.Coordinates[routeData.Coordinates.length - 1];
+            const stepMeters = getDistance(previous.Latitude, previous.Longitude, lat, lng);
 
-            const distance = getDistance(
-                previous.Latitude,
-                previous.Longitude,
-                lat,
-                lng
-            );
+            if (stepMeters < MIN_STEP_METERS) return;
 
-            if (distance >= 3) {
-
-                addRouteCoordinate(
-                    lat,
-                    lng,
-                    position.coords.altitude || 0
-                );
-
-                walkingTrail.addLatLng(newPosition);
-
-                routeData.TotalDistance += distance / 1000;
-
+            // Add up the climbing (only going up counts)
+            if (altitude !== null && altitude !== undefined) {
+                if (lastAltitude !== null && altitude - lastAltitude >= MIN_CLIMB_METERS) {
+                    routeData.ElevationGain += altitude - lastAltitude;
+                }
+                if (lastAltitude === null || Math.abs(altitude - lastAltitude) >= MIN_CLIMB_METERS) {
+                    lastAltitude = altitude;
+                }
             }
 
-            currentMarker.setLatLng(newPosition);
+            addRouteCoordinate(lat, lng, altitude);
+            liveTrailOutline.addLatLng(newPosition);
+            liveTrail.addLatLng(newPosition);
+            liveLink.setLatLngs([liveStart, newPosition]);
+            routeData.TotalDistance += stepMeters / 1000;
 
-            map.panTo(newPosition, {
-                animate: true
-            });
-
+            updateRecordingHud();
         },
-
         (error) => {
-
             console.error('GPS tracking error:', error);
-
-            alert('GPS tracking interrupted: ' + error.message);
-
+            showToast('GPS problem: ' + error.message, 'error');
         },
-
-        {
-            enableHighAccuracy: true,
-            maximumAge: 1000,
-            timeout: 15000
-        }
-
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
     );
-
 }
 
 
+// ==========================================
+// WAYPOINTS
+// ==========================================
 
-// ==========================================
-// WAYPOINT CREATION
-// ==========================================
+function createWaypointIcon() {
+    return L.divIcon({
+        className: '',
+        html: '<div class="waypoint-pin">&#9733;</div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
+}
+
+function buildWaypointPopup(name, description, imageUrl) {
+    const popup = document.createElement('div');
+
+    const title = document.createElement('p');
+    title.className = 'trail-popup-title';
+    title.textContent = name || 'Unnamed waypoint';
+    popup.appendChild(title);
+
+    const text = document.createElement('p');
+    text.className = 'trail-popup-text';
+    text.style.marginBottom = '0';
+    text.textContent = description || 'No description yet.';
+    popup.appendChild(text);
+
+    if (imageUrl) {
+        const image = document.createElement('img');
+        image.className = 'popup-photo';
+        image.src = imageUrl;
+        image.alt = name || 'Waypoint photo';
+        popup.appendChild(image);
+    }
+
+    return popup;
+}
 
 function openWaypointModal() {
-
     if (!isRecording || !currentPosition) {
-
-        alert('Please wait for your GPS location before adding a waypoint.');
+        showToast('Waiting for your GPS location.', 'info');
         return;
-
     }
 
-    waypointPosition = [...currentPosition];
+    waypointPoint = [...currentPosition];
 
-    document.getElementById('waypoint-name').value = '';
-    document.getElementById('waypoint-description').value = '';
+    byId('waypoint-name').value = '';
+    byId('waypoint-description').value = '';
+    byId('waypoint-photo').value = '';
+    byId('waypoint-photo-name').textContent = '';
+    byId('waypoint-photo-preview').classList.add('hidden');
+    byId('waypoint-coordinates').textContent =
+        `${waypointPoint[0].toFixed(6)}, ${waypointPoint[1].toFixed(6)}`;
 
-    document.getElementById('waypoint-coordinates').textContent =
-        `${waypointPosition[0].toFixed(6)}, ${waypointPosition[1].toFixed(6)}`;
-
-    document.getElementById('waypoint-photo').value = '';
-
-    document.getElementById('waypoint-photo-name').textContent = '';
-
-    document.getElementById('waypoint-modal').classList.remove('translate-x-full');
-
+    openPanel('waypoint-modal');
+    setTimeout(() => byId('waypoint-name').focus(), 320);
 }
 
+function closeWaypointModal() {
+    closePanel('waypoint-modal');
+}
 
-// ==========================================
-// SAVE WAYPOINT
-// ==========================================
+function showPhotoPreview() {
+    const file = byId('waypoint-photo').files[0];
+    const preview = byId('waypoint-photo-preview');
 
+    byId('waypoint-photo-name').textContent = file ? file.name : '';
+
+    if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove('hidden');
+    } else {
+        preview.classList.add('hidden');
+    }
+}
 
 async function saveWaypoint() {
-
-    if (!isRecording || !waypointPosition || !activeRouteId) {
-        alert('No active route or waypoint position found.');
+    if (!isRecording || !waypointPoint || !activeRouteId) {
+        showToast('No active route found.', 'error');
         return;
     }
 
-    const name =
-        document.getElementById('waypoint-name').value.trim();
-
-    const description =
-        document.getElementById('waypoint-description').value.trim();
-
-    const photoInput =
-        document.getElementById('waypoint-photo');
-
-    const photo = photoInput.files[0] || null;
+    const name = byId('waypoint-name').value.trim();
+    const description = byId('waypoint-description').value.trim();
+    const photo = byId('waypoint-photo').files[0] || null;
 
     if (!name) {
-        alert('Please enter a waypoint name.');
+        showToast('Please enter a waypoint name.', 'error');
+        byId('waypoint-name').focus();
         return;
     }
 
-    const [lat, lng] = waypointPosition;
-
-    const saveButton = document.getElementById('save-waypoint-btn');
+    const [lat, lng] = waypointPoint;
+    const saveButton = byId('save-waypoint-btn');
 
     saveButton.disabled = true;
     saveButton.textContent = 'Saving...';
 
     try {
-
         const formData = new FormData();
-
         formData.append('name', name);
         formData.append('description', description);
         formData.append('latitude', lat);
         formData.append('longitude', lng);
+        if (photo) formData.append('photo', photo);
 
-        if (photo) {
-            formData.append('photo', photo);
-        }
-
-        const response = await fetch(
-            `/home/routes/${activeRouteId}/waypoints/`,
-            {
-                method: 'POST',
-
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-
-                body: formData
-            }
-        );
+        const response = await fetch(URLS.saveWaypoint(activeRouteId), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: formData
+        });
 
         const result = await response.json();
 
@@ -573,125 +680,33 @@ async function saveWaypoint() {
             throw new Error(result.message || 'Unable to save waypoint.');
         }
 
-        const waypoint = {
-            RouteWP_ID: result.waypoint_id,
-            RouteID: activeRouteId,
-            LocationSpotName: name,
-            SpotDescription: description,
-            SpotImage: photo,
-            Latitude: lat,
-            Longitude: lng
-        };
+        routeData.Waypoints.push({ id: result.waypoint_id, name: name });
 
-        routeData.Waypoints.push(waypoint);
-
-        createWaypointMarker(waypoint);
-
-        console.log('Waypoint saved:', result);
+        L.marker([lat, lng], { icon: createWaypointIcon() })
+            .addTo(liveLayer)
+            .bindPopup(buildWaypointPopup(name, description, result.image_url), { autoPan: false });
 
         closeWaypointModal();
+        showToast(`Waypoint "${name}" saved.`, 'success');
 
     } catch (error) {
-
         console.error('Waypoint saving error:', error);
-        alert(error.message);
-
+        showToast(error.message, 'error');
     } finally {
-
         saveButton.disabled = false;
-        saveButton.textContent = 'Save Waypoint';
-
+        saveButton.textContent = 'Save waypoint';
     }
 }
 
 
-
 // ==========================================
-// WAYPOINT MAP PIN
+// FINISH ROUTE
 // ==========================================
-
-function createWaypointMarker(waypoint) {
-
-    const icon = L.divIcon({
-
-        className: 'waypoint-pin',
-
-        html: `
-            <div style="
-                width: 30px;
-                height: 30px;
-                background: #2563eb;
-                border: 2px solid white;
-                border-radius: 50% 50% 50% 0;
-                transform: rotate(-45deg);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 2px 8px rgba(0,0,0,.5);
-            ">
-                <span style="
-                    color: white;
-                    transform: rotate(45deg);
-                    font-size: 12px;
-                    font-weight: bold;
-                ">W</span>
-            </div>
-        `,
-
-        iconSize: [30, 30],
-        iconAnchor: [15, 30]
-
-    });
-
-
-    const marker = L.marker(
-        [waypoint.latitude, waypoint.longitude],
-        { icon: waypointIcon }
-    ).addTo(routeDetailsLayer);
-
-
-    // Build popup safely
-    const popupContent = document.createElement('div');
-
-    const title = document.createElement('strong');
-    title.textContent = waypoint.LocationSpotName;
-
-    const desc = document.createElement('p');
-    desc.textContent = waypoint.SpotDescription || 'No description provided.';
-
-    popupContent.appendChild(title);
-    popupContent.appendChild(desc);
-
-
-    if (waypoint.SpotImage) {
-
-        const image = document.createElement('img');
-
-        image.src = URL.createObjectURL(waypoint.SpotImage);
-
-        image.style.width = '150px';
-        image.style.marginTop = '8px';
-        image.style.borderRadius = '8px';
-
-        popupContent.appendChild(image);
-
-    }
-
-    marker.bindPopup(popupContent);
-
-    waypointMarkers.push(marker);
-
-}
-
-
-// ==========================================
-// STOP ROUTE RECORDING
-// ==========================================
-
 
 async function stopRoute() {
-
     if (!isRecording) return;
+
+    if (!confirm('Finish and save this route?')) return;
 
     isRecording = false;
 
@@ -700,35 +715,32 @@ async function stopRoute() {
         gpsWatcher = null;
     }
 
-    document.getElementById('route-controls')
-        .classList.add('hidden');
+    clearInterval(hudTimer);
+    hudTimer = null;
+
+    const finishedRouteId = activeRouteId;
+    const finishedName = routeData.RouteName;
+    const distanceKm = routeData.TotalDistance;
+    const pointCount = routeData.Coordinates.length;
 
     try {
-
-        // Wait for pending GPS requests
+        // Wait until every GPS point has reached the server
         await coordinateSaveQueue;
 
-        const elapsedMinutes = Math.floor(
-            (Date.now() - routeStartedAt) / 60000
-        );
+        const elapsedMinutes = Math.max(1, Math.round((Date.now() - routeStartedAt) / 60000));
 
-        const response = await fetch(
-            `/home/routes/${activeRouteId}/finish/`,
-            {
-                method: 'POST',
-
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-
-                body: JSON.stringify({
-                    total_distance: routeData.TotalDistance,
-                    elevation: routeData.Elevation || 0,
-                    estimated_time: elapsedMinutes
-                })
-            }
-        );
+        const response = await fetch(URLS.finishRoute(finishedRouteId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                total_distance: Number(distanceKm.toFixed(2)),
+                elevation: Number(routeData.ElevationGain.toFixed(2)),
+                estimated_time: elapsedMinutes
+            })
+        });
 
         const result = await response.json();
 
@@ -736,428 +748,669 @@ async function stopRoute() {
             throw new Error(result.message || 'Unable to complete route.');
         }
 
-        routeData.Status = 'Completed';
-
-        console.log('Completed Route:', routeData);
-
-        alert(
-            `Route "${routeData.RouteName}" completed!\n` +
-            `Distance: ${routeData.TotalDistance.toFixed(2)} km\n` +
-            `Coordinates: ${routeData.Coordinates.length}\n` +
-            `Waypoints: ${routeData.Waypoints.length}`
+        showToast(
+            `"${finishedName}" saved: ${distanceKm.toFixed(2)} km, ${pointCount} GPS points.`,
+            'success'
         );
-
-        activeRouteId = null;
 
     } catch (error) {
-
         console.error('Route completion error:', error);
-
-        alert(
-            'GPS recording stopped, but the route summary could not be saved: ' +
-            error.message
-        );
-
+        showToast('Recording stopped, but the summary was not saved: ' + error.message, 'error');
     }
 
+    endRecordingScreen();
+
+    await loadSavedRoutes();
+    if (savedTrails.has(finishedRouteId)) focusTrail(finishedRouteId);
 }
 
-
-
-// ==========================================
-// DISTANCE CALCULATION
-// ==========================================
-
-function getDistance(lat1, lon1, lat2, lon2) {
-
-    const R = 6371000;
-
-    const toRad = value => value * Math.PI / 180;
-
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) ** 2;
-
-    return R * 2 * Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a)
-    );
-
-}
-
-
-// ==========================================
-// MODAL EVENTS
-// ==========================================
-
-function initModalEvents() {
-
-    document.getElementById('close-route-modal')
-        .addEventListener('click', closeRouteModal);
-
-    document.getElementById('close-waypoint-modal')
-        .addEventListener('click', closeWaypointModal);
-
-    document.getElementById('save-route-btn')
-        .addEventListener('click', createRoute);
-
-    document.getElementById('add-waypoint-btn')
-        .addEventListener('click', openWaypointModal);
-
-    document.getElementById('save-waypoint-btn')
-        .addEventListener('click', saveWaypoint);
-
-    document.getElementById('stop-route-btn')
-        .addEventListener('click', stopRoute);
-
-    document.getElementById('waypoint-photo')
-        .addEventListener('change', function() {
-
-            const file = this.files[0];
-
-            document.getElementById('waypoint-photo-name').textContent =
-                file ? file.name : '';
-
-        });
-
-}
-
-
-// ==========================================
-// MODAL CONTROLS
-// ==========================================
-
-function openRouteModal() {
-
-    document.getElementById('route-modal')
-        .classList.remove('translate-x-full');
-
-}
-
-function closeRouteModal() {
-
-    document.getElementById('route-modal')
-        .classList.add('translate-x-full');
-
-}
-
-function closeWaypointModal() {
-
-    document.getElementById('waypoint-modal')
-        .classList.add('translate-x-full');
-
-}
-
-
-// ==========================================
-// HERO CARDS
-// ==========================================
-
-function hideHeroCards() {
-
-    const container =
-        document.getElementById('hero-cards-container');
-
-    if (container) {
-
-        container.classList.add(
-            'opacity-0',
-            'pointer-events-none',
-            'translate-y-4'
-        );
-
+function endRecordingScreen() {
+    if (liveLayer) {
+        map.removeLayer(liveLayer);
+        liveLayer = null;
     }
 
+    liveTrail = null;
+    liveTrailOutline = null;
+    liveLink = null;
+    liveStart = null;
+    liveDot = null;
+    routeData = null;
+    activeRouteId = null;
+    currentPosition = null;
+    isRecording = false;
+
+    closeAllPanels();
+
+    byId('route-controls').classList.add('hidden');
+    byId('route-controls').classList.remove('flex');
+    byId('recording-hud').classList.add('hidden');
+    byId('recording-hud').classList.remove('flex');
+    byId('new-route-btn').classList.remove('hidden');
+    byId('search-box').classList.remove('hidden');
+    byId('hero-cards-container').classList.remove('hidden');
 }
 
 
 // ==========================================
-// DISPLAY SAVED ROUTES
+// SAVED TRAILS (from the database)
 // ==========================================
 
 async function loadSavedRoutes() {
+    showTrailCardsLoading();
 
     try {
+        const response = await fetch(URLS.savedRoutes, {
+            headers: { 'Accept': 'application/json' }
+        });
 
-        const response = await fetch('/SA-AG/api/routes/map/');
+        const isJson = (response.headers.get('content-type') || '').includes('application/json');
 
-        if (!response.ok) {
-            throw new Error('Unable to retrieve saved routes.');
+        if (!response.ok || !isJson) {
+            throw new Error(
+                response.status === 403 || response.redirected
+                    ? 'Please log in to see trails.'
+                    : 'Unable to retrieve saved trails.'
+            );
         }
 
         const result = await response.json();
 
-        // Remove previously displayed routes
-        savedRouteLayers.forEach(layer => {
-            map.removeLayer(layer);
+        // Remove what was drawn before
+        savedTrails.forEach((trail) => {
+            map.removeLayer(trail.startMarker);
+            map.removeLayer(trail.detailsLayer);
         });
+        savedTrails.clear();
+        focusedRouteId = null;
 
-        savedRouteLayers = [];
-
-        // Display each route
-        result.routes.forEach(route => {
-            displaySavedRoute(route);
-        });
-
-        console.log('Saved routes loaded:', result.routes);
+        result.routes.forEach(displaySavedRoute);
+        allRoutes = result.routes;
+        refreshTrailCards();
+        renderSearchResults();
+        loadPlaceNamesForSearch();
 
     } catch (error) {
-
-        console.error('Saved route loading error:', error);
-
+        console.error('Saved trail loading error:', error);
+        renderTrailCardsError(error.message);
     }
 }
 
+function createStartIcon(isMine) {
+    return L.divIcon({
+        className: '',
+        html: `<div class="start-pin ${isMine ? '' : 'is-other'}"><span>&#128205;</span></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36]
+    });
+}
 
-// ==========================================
-// DISPLAY ONE SAVED ROUTE
-// ==========================================
+const PIN_TAG_OPTIONS = {
+    permanent: true,
+    direction: 'right',
+    offset: [16, -18],
+    className: 'pin-tag'
+};
+
+function createEndIcon() {
+    return L.divIcon({
+        className: '',
+        html: '<div class="end-pin"><span>&#127937;</span></div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 36]
+    });
+}
+
+function formatDistance(meters) {
+    return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(2)} km`;
+}
+
+function buildEndPopup(route, gapMeters) {
+    return `
+        <div>
+            <p class="trail-popup-title">Route end</p>
+            <p class="trail-popup-text" style="margin-bottom:0">
+                ${escapeHtml(route.name)} finishes ${formatDistance(gapMeters)} in a straight line from where it started.
+            </p>
+        </div>`;
+}
+
+function buildRoutePopup(route) {
+    const climbMeters = Math.round(Number(route.elevation || 0));
+    const owner = route.is_mine ? 'Your route' : `By ${escapeHtml(route.created_by)}`;
+
+    return `
+        <div>
+            <p class="trail-popup-title">${escapeHtml(route.name)}</p>
+            ${route.description ? `<p class="trail-popup-text">${escapeHtml(route.description)}</p>` : ''}
+
+            <div class="trail-popup-grid">
+                <div><strong>${Number(route.total_distance).toFixed(2)}</strong><span>km</span></div>
+                <div><strong>${formatMinutes(route.estimated_time)}</strong><span>time</span></div>
+                <div><strong>${climbMeters}</strong><span>m climb</span></div>
+            </div>
+
+            <div class="trail-popup-footer">
+                <span class="trail-popup-stat">${escapeHtml(route.difficulty)}</span>
+                <span class="trail-popup-owner">${owner}</span>
+            </div>
+        </div>`;
+}
 
 function displaySavedRoute(route) {
+    const points = (route.coordinates || []).map((point) => [point.latitude, point.longitude]);
 
-    const coordinates = route.coordinates || [];
-    const waypoints = route.waypoints || [];
+    if (points.length === 0) return;
 
-    const routeDetailsLayer = L.layerGroup();
-    let routeDetailsVisible = false;
+    const detailsLayer = L.layerGroup();
 
-    if (coordinates.length === 0) {
-        console.warn('Route has no starting coordinate:', route.name);
-        return;
-    }
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    const hasPath = points.length >= 2;
+    const gapMeters = hasPath ? getDistance(firstPoint[0], firstPoint[1], lastPoint[0], lastPoint[1]) : 0;
+    const endsNearStart = !hasPath || gapMeters < ROUTE_LOOP_METERS;
 
-    // --------------------------------------
-    // 1. STARTING POINT PIN
-    // --------------------------------------
-
-    const startPoint = coordinates[0];
-
-    const startIcon = L.divIcon({
-        className: '',
-        html: `
-            <div style="
-                width: 38px;
-                height: 38px;
-                background: #f5a623;
-                border: 3px solid white;
-                border-radius: 50% 50% 50% 0;
-                transform: rotate(-45deg);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 3px 10px rgba(0,0,0,.4);
-            ">
-                <span style="transform: rotate(45deg);">📍</span>
-            </div>
-        `,
-        iconSize: [38, 38],
-        iconAnchor: [19, 38]
-    });
-
-    const startMarker = L.marker(
-        [startPoint.latitude, startPoint.longitude],
-        {
-            icon: startIcon,
-            zIndexOffset: 1000
-        }
-    ).addTo(map);
-
-    startMarker.bindPopup(`
-        <div>
-            <strong>${escapeMapText(route.name)}</strong>
-            <p>${escapeMapText(route.description || '')}</p>
-            <small>
-                ${route.total_distance} km ·
-                ${route.estimated_time} minutes
-            </small>
-        </div>
-    `);
-
-    savedRouteLayers.push(startMarker);
-
-
-    // --------------------------------------
-    // 2. DRAW THE RECORDED GPS PATH
-    // --------------------------------------
-
-    const routePoints = coordinates.map(point => [
-        point.latitude,
-        point.longitude
-    ]);
-
-    if (routePoints.length >= 2) {
-
-        const routeLine = L.polyline(routePoints, {
-            color: '#f5a623',
-            weight: 5,
+    if (hasPath) {
+        // White outline under the green line so it stands out on satellite photos
+        L.polyline(points, {
+            color: '#ffffff',
+            weight: 10,
             opacity: 0.9,
             lineCap: 'round',
-            lineJoin: 'round'
-        }).addTo(routeDetailsLayer);
+            lineJoin: 'round',
+            bubblingMouseEvents: false
+        }).addTo(detailsLayer);
 
-        savedRouteLayers.push(routeDetailsLayer);
+        L.polyline(points, {
+            color: '#10b981',
+            weight: 5,
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+            bubblingMouseEvents: false
+        }).addTo(detailsLayer);
+
+        if (!endsNearStart) {
+            // Dashed straight line connecting the start to the end
+            if (SHOW_START_END_LINK) {
+                L.polyline([firstPoint, lastPoint], {
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 0.85,
+                    dashArray: '4 10',
+                    interactive: false
+                }).addTo(detailsLayer);
+            }
+
+            L.marker(lastPoint, { icon: createEndIcon(), zIndexOffset: 900 })
+                .addTo(detailsLayer)
+                .bindPopup(buildEndPopup(route, gapMeters), { autoPan: false })
+                .bindTooltip('End', PIN_TAG_OPTIONS);
+        }
     }
 
+    (route.waypoints || []).forEach((waypoint) => {
+        const lat = Number(waypoint.latitude);
+        const lng = Number(waypoint.longitude);
 
-    // --------------------------------------
-    // 3. DISPLAY WAYPOINT MARKERS
-    // --------------------------------------
-waypoints.forEach((waypoint, index) => {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-    const latitude = Number(waypoint.latitude);
-    const longitude = Number(waypoint.longitude);
-
-    console.log(`Waypoint ${index + 1}:`, {
-        name: waypoint.name,
-        latitude,
-        longitude,
-        valid: Number.isFinite(latitude) &&
-               Number.isFinite(longitude)
+        L.marker([lat, lng], { icon: createWaypointIcon() })
+            .addTo(detailsLayer)
+            .bindPopup(buildWaypointPopup(waypoint.name, waypoint.description, waypoint.image), { autoPan: false });
     });
 
-    if (
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude)
-    ) {
-        console.warn('Invalid waypoint:', waypoint);
-        return;
-    }
+    const startMarker = L.marker(points[0], {
+        icon: createStartIcon(route.is_mine),
+        zIndexOffset: 1000
+    }).addTo(map);
 
-    const waypointIcon = L.divIcon({
-        className: '',
-        html: `
-            <div style="
-                width: 30px;
-                height: 30px;
-                background: #2563eb;
-                border: 2px solid white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-weight: bold;
-                box-shadow: 0 2px 8px rgba(0,0,0,.4);
-            ">★</div>
-        `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-    });
+    startMarker.bindPopup(buildRoutePopup(route), { autoPan: false });
+    startMarker.on('click', () => focusTrail(route.route_id));
 
-    const marker = L.marker(
-        [latitude, longitude],
-        { icon: waypointIcon }
-    ).addTo(routeDetailsLayer);
+    savedTrails.set(route.route_id, { route, startMarker, detailsLayer, points, endsNearStart });
+}
 
-    console.log('Marker added to map:', map.hasLayer(marker));
+function focusTrail(routeId) {
+    const trail = savedTrails.get(routeId);
+    if (!trail) return;
 
-    const popup = document.createElement('div');
+    clearFocusedTrail();
 
-    const title = document.createElement('strong');
-    title.textContent = waypoint.name || 'Unnamed waypoint';
+    focusedRouteId = routeId;
+    trail.detailsLayer.addTo(map);
 
-    const description = document.createElement('p');
-    description.textContent =
-        waypoint.description || 'No description available.';
-
-    popup.appendChild(title);
-    popup.appendChild(description);
-
-    if (waypoint.image) {
-        const image = document.createElement('img');
-        image.src = waypoint.image;
-        image.alt = waypoint.name || 'Waypoint image';
-        image.style.width = '180px';
-        image.style.marginTop = '8px';
-        image.style.borderRadius = '8px';
-        popup.appendChild(image);
-    }
-
-    marker.bindPopup(popup);
-});
-
-   // --------------------------------------
-// 4. TOGGLE ROUTE DETAILS
-// --------------------------------------
-
-startMarker.on('click', () => {
-
-    if (routeDetailsVisible) {
-
-        // Hide this route's waypoints and path
-        map.removeLayer(routeDetailsLayer);
-        routeDetailsVisible = false;
-
-        return;
-    }
-
-    // Show this route's waypoints and path
-    routeDetailsLayer.addTo(map);
-    routeDetailsVisible = true;
-
-    // Zoom to this route's locations
     const allPoints = [
-        ...routePoints,
-        ...waypoints.map(waypoint => [
-            Number(waypoint.latitude),
-            Number(waypoint.longitude)
-        ])
-    ];
+        ...trail.points,
+        ...(trail.route.waypoints || []).map((waypoint) => [Number(waypoint.latitude), Number(waypoint.longitude)])
+    ].filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1]));
 
-    if (allPoints.length > 0) {
+    map.fitBounds(L.latLngBounds(allPoints), {
+        paddingTopLeft: [60, 170],
+        paddingBottomRight: [60, 240],
+        maxZoom: 17,
+        animate: true
+    });
 
-        const bounds = L.latLngBounds(allPoints);
+    trail.startMarker.bindTooltip(trail.endsNearStart ? 'Start and end' : 'Start', PIN_TAG_OPTIONS);
+    trail.startMarker.openPopup();
+    highlightTrailCard(routeId);
+}
 
-        map.fitBounds(bounds, {
-            padding: [60, 60],
-            maxZoom: 16,
-            animate: true
+function clearFocusedTrail() {
+    if (focusedRouteId === null) return;
+
+    const trail = savedTrails.get(focusedRouteId);
+    if (trail) {
+        map.removeLayer(trail.detailsLayer);
+        trail.startMarker.closePopup();
+        trail.startMarker.unbindTooltip();
+    }
+
+    focusedRouteId = null;
+    highlightTrailCard(null);
+}
+
+
+// ==========================================
+// TRAIL CARDS (at most 3, no scrolling)
+// ==========================================
+
+// Used only when a route has no waypoint photo yet
+const FALLBACK_PHOTOS = [
+    'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80'
+];
+
+const DIFFICULTY_BADGE_CLASSES = {
+    Easy: 'bg-emerald-400 text-black',
+    Moderate: 'bg-lime-300 text-black',
+    Challenging: 'bg-white text-black'
+};
+
+// Phones show 1 card, small tablets 2, bigger screens all 3
+const CARD_VISIBILITY_CLASSES = ['flex', 'hidden sm:flex', 'hidden md:flex'];
+
+function showTrailCardsLoading() {
+    byId('hero-cards-list').innerHTML = `
+        <div class="skeleton flex-1 max-w-[300px] h-[200px] rounded-2xl"></div>
+        <div class="skeleton flex-1 max-w-[300px] h-[200px] rounded-2xl hidden sm:block"></div>
+        <div class="skeleton flex-1 max-w-[300px] h-[200px] rounded-2xl hidden md:block"></div>`;
+}
+
+function renderTrailCardsError(message) {
+    byId('hero-cards-list').innerHTML = `
+        <div class="w-full max-w-xl rounded-2xl bg-black/90 border border-white/15 p-5 flex items-center justify-between gap-4">
+            <p class="text-sm text-zinc-300">${escapeHtml(message)}</p>
+            <button id="retry-trails-btn" type="button"
+                class="shrink-0 text-sm font-bold px-4 py-2 rounded-lg bg-white text-black hover:bg-emerald-400 transition-colors">
+                Try again
+            </button>
+        </div>`;
+
+    byId('retry-trails-btn').addEventListener('click', loadSavedRoutes);
+}
+
+// Shows the newest 3 routes, or the first 3 matches when something is typed in the search box
+function refreshTrailCards() {
+    const list = byId('hero-cards-list');
+    const matches = getSearchMatches(searchText);
+
+    list.innerHTML = '';
+
+    if (allRoutes.length === 0) {
+        list.innerHTML = `
+            <div class="w-full max-w-xl rounded-2xl bg-black/90 border border-white/15 p-5 flex items-center justify-between gap-4">
+                <p class="text-sm text-zinc-300">No trails yet. Record a route and it will show up here.</p>
+                <button id="empty-new-route-btn" type="button"
+                    class="shrink-0 text-sm font-bold px-4 py-2 rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 transition-colors">
+                    New route
+                </button>
+            </div>`;
+        byId('empty-new-route-btn').addEventListener('click', openRouteModal);
+        return;
+    }
+
+    if (matches.length === 0) {
+        list.innerHTML = `
+            <div class="w-full max-w-xl rounded-2xl bg-black/90 border border-white/15 p-5">
+                <p class="text-sm text-zinc-300">No trail or place matches "${escapeHtml(searchText)}".</p>
+            </div>`;
+        return;
+    }
+
+    matches.slice(0, MAX_TRAIL_CARDS).forEach((route, index) => {
+        list.appendChild(createTrailCard(route, index));
+    });
+}
+
+function createTrailCard(route, index) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.dataset.routeId = route.route_id;
+    card.className =
+        `trail-card group relative flex-1 min-w-0 max-w-[300px] h-[200px] ${CARD_VISIBILITY_CLASSES[index]} ` +
+        'flex-col justify-end rounded-2xl overflow-hidden shadow-2xl border border-white/20 p-5 text-left cursor-pointer';
+
+    const badgeClasses = DIFFICULTY_BADGE_CLASSES[route.difficulty] || DIFFICULTY_BADGE_CLASSES.Moderate;
+    const photoUrl = route.cover_image || FALLBACK_PHOTOS[route.route_id % FALLBACK_PHOTOS.length];
+
+    card.innerHTML = `
+        <div class="trail-card-fallback absolute inset-0"></div>
+        <img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(route.name)}"
+            class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+
+        <div class="relative z-10 text-white min-w-0">
+            <span class="inline-block px-2.5 py-1 ${badgeClasses} text-[11px] font-bold rounded-md mb-2">
+                ${escapeHtml(route.difficulty)} &middot; ${Number(route.total_distance).toFixed(1)} km
+            </span>
+            <h4 class="font-display text-lg font-bold leading-snug truncate">${escapeHtml(route.name)}</h4>
+            <p class="text-xs text-zinc-300 mt-0.5 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-emerald-400 shrink-0">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+                <span class="trail-place truncate"></span>
+            </p>
+        </div>`;
+
+    // If a photo cannot load, the green contour pattern shows instead
+    const image = card.querySelector('img');
+    image.addEventListener('error', () => image.remove());
+
+    fillPlaceName(card.querySelector('.trail-place'), route);
+
+    card.addEventListener('click', () => focusTrail(route.route_id));
+
+    return card;
+}
+
+function highlightTrailCard(routeId) {
+    document.querySelectorAll('.trail-card').forEach((card) => {
+        const isActive = routeId !== null && Number(card.dataset.routeId) === routeId;
+        card.classList.toggle('is-active', isActive);
+    });
+}
+
+
+// ==========================================
+// PLACE NAMES (turns GPS numbers into "Town, Province")
+// ==========================================
+
+const placeRequests = new Map();
+let placeLookupQueue = Promise.resolve();
+
+function getPlaceName(lat, lng) {
+    const key = `saag-place:${lat.toFixed(3)},${lng.toFixed(3)}`;
+
+    let remembered = null;
+    try { remembered = localStorage.getItem(key); } catch (error) { /* storage blocked */ }
+
+    if (remembered) return Promise.resolve(remembered);
+    if (placeRequests.has(key)) return placeRequests.get(key);
+
+    // One lookup at a time, about one per second, to be polite to the free service
+    const request = new Promise((resolve) => {
+        placeLookupQueue = placeLookupQueue.then(async () => {
+            let label = null;
+
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=en&lat=${lat}&lon=${lng}`
+                );
+                const data = await response.json();
+                const address = data.address || {};
+
+                const smallPlace = address.village || address.suburb || address.neighbourhood ||
+                    address.town || address.city_district || address.city || address.municipality;
+                const bigPlace = address.city || address.municipality || address.county || address.state;
+
+                label = [...new Set([smallPlace, bigPlace].filter(Boolean))].join(', ') || null;
+
+                if (label) {
+                    try { localStorage.setItem(key, label); } catch (error) { /* storage blocked */ }
+                }
+            } catch (error) {
+                console.warn('Place name lookup failed:', error);
+            }
+
+            resolve(label);
+            await new Promise((done) => setTimeout(done, 1100));
         });
+    });
 
+    placeRequests.set(key, request);
+    return request;
+}
+
+function fillPlaceName(element, route) {
+    const start = (route.coordinates || [])[0];
+
+    if (!start) {
+        element.textContent = 'Location unknown';
+        return;
     }
 
-});
+    if (placeNames.has(route.route_id)) {
+        element.textContent = placeNames.get(route.route_id);
+        return;
+    }
 
+    // Show the numbers right away, then replace them with the real name
+    element.textContent = `${start.latitude.toFixed(4)}, ${start.longitude.toFixed(4)}`;
+
+    getPlaceName(start.latitude, start.longitude).then((label) => {
+        if (label) element.textContent = label;
+    });
+}
+
+// Looks up every route's place name so the search box can match locations
+function loadPlaceNamesForSearch() {
+    allRoutes.forEach((route) => {
+        const start = (route.coordinates || [])[0];
+        if (!start) return;
+
+        getPlaceName(start.latitude, start.longitude).then((label) => {
+            if (!label) return;
+
+            placeNames.set(route.route_id, label);
+
+            if (searchText) {
+                refreshTrailCards();
+                renderSearchResults();
+            }
+        });
+    });
 }
 
 
 // ==========================================
-// ESCAPE POPUP TEXT
+// SEARCH (trail name or place)
 // ==========================================
 
-function escapeMapText(value) {
+function getSearchMatches(query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
 
-    return String(value).replace(/[&<>"']/g, character => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    })[character]);
+    if (words.length === 0) return allRoutes;
 
+    return allRoutes
+        .map((route) => {
+            const name = route.name.toLowerCase();
+            const place = (placeNames.get(route.route_id) || '').toLowerCase();
+
+            const foundInName = words.every((word) => name.includes(word));
+            const foundInPlace = words.every((word) => place.includes(word));
+            const foundAcrossBoth = words.every((word) => name.includes(word) || place.includes(word));
+
+            if (!foundInName && !foundInPlace && !foundAcrossBoth) return null;
+
+            // Name matches come first, then routes in the same place
+            return { route, score: (foundInName ? 2 : 0) + (foundInPlace ? 1 : 0) };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score)
+        .map((item) => item.route);
+}
+
+function renderSearchResults() {
+    const box = byId('search-results');
+
+    if (!searchText) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+    }
+
+    const matches = getSearchMatches(searchText);
+    box.classList.remove('hidden');
+    box.innerHTML = '';
+
+    if (matches.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'px-4 py-3 text-sm text-zinc-400';
+        empty.textContent = `No trail or place matches "${searchText}".`;
+        box.appendChild(empty);
+    }
+
+    matches.forEach((route) => {
+        const place = placeNames.get(route.route_id) || 'Finding place...';
+
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className =
+            'w-full text-left px-4 py-3 border-b border-white/10 last:border-b-0 hover:bg-emerald-500/15 transition-colors';
+
+        const title = document.createElement('div');
+        title.className = 'text-sm font-semibold text-white truncate';
+        title.textContent = route.name;
+
+        const detail = document.createElement('div');
+        detail.className = 'text-xs text-zinc-400 truncate mt-0.5';
+        detail.textContent = `${place}, ${Number(route.total_distance).toFixed(1)} km`;
+
+        row.appendChild(title);
+        row.appendChild(detail);
+        row.addEventListener('click', () => chooseSearchResult(route));
+        box.appendChild(row);
+    });
+
+    // Let people know place matching is still warming up
+    const stillLooking = allRoutes.some((route) => (route.coordinates || []).length && !placeNames.has(route.route_id));
+    if (stillLooking) {
+        const note = document.createElement('p');
+        note.className = 'px-4 py-2 text-xs text-zinc-500 border-t border-white/10';
+        note.textContent = 'Still looking up place names. Search by place may show more in a moment.';
+        box.appendChild(note);
+    }
+}
+
+function chooseSearchResult(route) {
+    byId('search-results').classList.add('hidden');
+    byId('trail-search').value = route.name;
+    byId('clear-search-btn').classList.remove('hidden');
+    focusTrail(route.route_id);
+}
+
+function updateSearch() {
+    const input = byId('trail-search');
+    searchText = input.value.trim();
+
+    byId('clear-search-btn').classList.toggle('hidden', input.value === '');
+
+    refreshTrailCards();
+    renderSearchResults();
+}
+
+function initSearch() {
+    const input = byId('trail-search');
+
+    input.addEventListener('input', updateSearch);
+    input.addEventListener('focus', renderSearchResults);
+
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            const firstMatch = getSearchMatches(searchText)[0];
+            if (searchText && firstMatch) chooseSearchResult(firstMatch);
+        }
+        if (event.key === 'Escape') {
+            byId('search-results').classList.add('hidden');
+            input.blur();
+        }
+    });
+
+    byId('clear-search-btn').addEventListener('click', () => {
+        input.value = '';
+        updateSearch();
+        input.focus();
+    });
+
+    // Click anywhere else to close the result list
+    document.addEventListener('click', (event) => {
+        if (!byId('search-box').contains(event.target)) {
+            byId('search-results').classList.add('hidden');
+        }
+    });
 }
 
 
+// ==========================================
+// SIDEBAR (phones)
+// ==========================================
+
+function openSidebar() {
+    byId('sidebar-header').classList.remove('-translate-x-full');
+}
+
+function closeSidebar() {
+    byId('sidebar-header').classList.add('-translate-x-full');
+}
 
 
-function showHeroCards() {
+// ==========================================
+// BUTTONS AND KEYBOARD
+// ==========================================
 
-    const container =
-        document.getElementById('hero-cards-container');
+function initEvents() {
+    initSearch();
 
-    if (container) {
+    // New route panel: every way to leave it works
+    byId('new-route-btn').addEventListener('click', openRouteModal);
+    byId('close-route-modal').addEventListener('click', closeRouteModal);
+    byId('cancel-route-btn').addEventListener('click', closeRouteModal);
+    byId('save-route-btn').addEventListener('click', createRoute);
+    byId('gps-retry-btn').addEventListener('click', requestStartLocation);
 
-        container.classList.remove(
-            'opacity-0',
-            'pointer-events-none',
-            'translate-y-4'
-        );
+    byId('route-name').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !byId('save-route-btn').disabled) createRoute();
+    });
 
-    }
+    // Waypoint panel
+    byId('add-waypoint-btn').addEventListener('click', openWaypointModal);
+    byId('close-waypoint-modal').addEventListener('click', closeWaypointModal);
+    byId('cancel-waypoint-btn').addEventListener('click', closeWaypointModal);
+    byId('save-waypoint-btn').addEventListener('click', saveWaypoint);
+    byId('waypoint-photo').addEventListener('change', showPhotoPreview);
 
+    // Recording controls
+    byId('stop-route-btn').addEventListener('click', stopRoute);
+    byId('recenter-btn').addEventListener('click', () => {
+        followUser = true;
+        if (currentPosition) map.panTo(currentPosition, { animate: true });
+    });
+
+    // Click the dark area or press Escape to close a panel
+    byId('panel-backdrop').addEventListener('click', closeAllPanels);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeAllPanels();
+    });
+
+    // Phone menu
+    byId('open-sidebar-btn').addEventListener('click', openSidebar);
+    byId('close-sidebar-btn').addEventListener('click', closeSidebar);
+    document.querySelectorAll('#sidebar-header .nav-link').forEach((link) => {
+        link.addEventListener('click', closeSidebar);
+    });
 }

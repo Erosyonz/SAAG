@@ -1,4 +1,3 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -9,390 +8,322 @@
 
     <title>SA-AG - Interactive Trail Map</title>
 
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="{% static 'css/home/home.css' %}">
 
-    <!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
-<!-- Leaflet JavaScript -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 
-<body class="bg-gray-100 min-h-screen font-sans text-slate-800">
+<body class="bg-black min-h-screen text-white antialiased">
 
-    <!-- Main Application Layout -->
-    <div class="flex h-screen w-full overflow-hidden bg-gray-100">
+    <div class="flex h-screen w-full overflow-hidden bg-black">
 
-        <!-- SIDEBAR -->
+        <!-- ================= SIDEBAR ================= -->
         <aside id="sidebar-header"
-            class="bg-black text-white w-16 shrink-0 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0">
+            class="bg-black text-white w-16 shrink-0 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-50 border-r border-white/10 transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0">
 
             <div>
+                <!-- Brand -->
+                <div class="flex flex-col items-center gap-3 py-4 mb-2 border-b border-white/10">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500 text-black grid place-items-center font-display font-extrabold text-sm">SA</div>
 
-                <!-- Brand Header -->
-                <div class="flex items-center justify-between pb-6 mb-6 border-b border-gray-800">
-
-                    <!-- Mobile Close Button -->
-                    <button id="close-sidebar-btn"
-                        class="md:hidden text-gray-400 hover:text-white focus:outline-none">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="size-6">
-
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M6 18 18 6M6 6l12 12" />
-
+                    <button id="close-sidebar-btn" type="button" aria-label="Close menu"
+                        class="md:hidden text-zinc-400 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
-
                     </button>
-
                 </div>
 
-                <!-- Navigation Links -->
-                <nav class="space-y-2">
-
-                    <!-- Home -->
-                    <a href="#home"
-                        class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-                        data-page="home">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="size-6 shrink-0">
-
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-
+                <!-- Navigation -->
+                <nav class="space-y-1 px-2">
+                    <a href="#home" title="Home" aria-label="Home" data-page="home"
+                        class="nav-link active flex items-center justify-center py-3 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
                         </svg>
-
                     </a>
 
-                    <!-- Map Shortcut (Returns to Home Map) -->
-                    <a href="#home"
-                        class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-                        data-page="home">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="size-6 shrink-0">
-
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M9 6.75V15m6-6v8.25m.503-11.487 4.5 1.744a.75.75 0 0 1 .497.702v12.247a.75.75 0 0 1-.996.711l-4.5-1.744a.75.75 0 0 0-.504 0l-4.5 1.744a.75.75 0 0 1-.497-.702V4.225a.75.75 0 0 1 .996-.711l4.5 1.744a.75.75 0 0 0 .504 0Z" />
-
+                    <a href="{% url 'profile' %}" title="Profile" aria-label="Profile" data-page="profile"
+                        class="nav-link flex items-center justify-center py-3 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                         </svg>
-
                     </a>
-
-                    <!-- Profile -->
-                    <a href="#profile"
-                        class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-                        data-page="profile">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="size-6 shrink-0">
-
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-
-                        </svg>
-
-                    </a>
-
                 </nav>
-
             </div>
 
-            <!-- Sidebar Footer -->
-            <div class="pt-4 border-t border-gray-800 text-xs text-gray-500 p-2">
-                &copy; SAAG
-            </div>
-
+            <div class="py-3 border-t border-white/10 text-[11px] text-zinc-500 text-center">&copy; SAAG</div>
         </aside>
 
 
-        <!-- MAIN CONTENT -->
+        <!-- ================= MAIN ================= -->
         <main class="flex-1 min-w-0 h-full overflow-hidden m-0 p-0">
 
-            <!-- HOME PAGE -->
-            <section id="view-home"
-                class="page-view flex flex-col w-full h-full min-w-0 relative overflow-hidden">
-                            
-                <!-- Map Container filling 100% -->
-                <div id="mapbox-container"
-                    class="w-full h-full absolute inset-0">
+            <section id="view-home" class="page-view flex flex-col w-full h-full min-w-0 relative overflow-hidden">
+
+                <!-- Map (isolate keeps Leaflet's layers below our buttons) -->
+                <div id="mapbox-container" class="w-full h-full absolute inset-0 isolate z-0 bg-zinc-900"></div>
+
+                <!-- Top-left: menu button (phones) + trail search -->
+                <div class="absolute top-4 left-4 right-36 md:right-auto md:w-[26rem] z-20 flex items-start gap-2">
+                    <button id="open-sidebar-btn" type="button" aria-label="Open menu"
+                        class="md:hidden size-10 shrink-0 grid place-items-center rounded-xl bg-black/90 border border-white/15 text-white backdrop-blur">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+
+                    <div id="search-box" class="relative flex-1 min-w-0">
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-zinc-400 pointer-events-none">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                            </svg>
+
+                            <input id="trail-search" type="text" autocomplete="off"
+                                placeholder="Search trails or places" aria-label="Search trails or places"
+                                class="w-full h-10 pl-10 pr-10 rounded-xl bg-black/90 backdrop-blur border border-white/15 text-sm text-white placeholder-zinc-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
+
+                            <button id="clear-search-btn" type="button" aria-label="Clear search"
+                                class="hidden absolute right-2 top-1/2 -translate-y-1/2 size-7 place-items-center rounded-md text-zinc-300 hover:bg-white hover:text-black transition-colors [&:not(.hidden)]:grid">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div id="search-results"
+                            class="hidden absolute top-full left-0 right-0 mt-2 max-h-72 overflow-y-auto rounded-xl bg-black border border-white/15 shadow-2xl"></div>
+                    </div>
                 </div>
 
-                <!-- Satellite Mode Indicator -->
-                <div class="absolute top-4 left-4 z-[400] bg-black/80 backdrop-blur-md text-white text-xs px-3 py-2 rounded-full pointer-events-none border border-white/10 shadow-lg flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Satellite Mode Active
+                <!-- Satellite badge (wide screens) -->
+                <div class="hidden md:flex pointer-events-none absolute top-4 right-40 z-20 h-10 items-center gap-2 bg-black/85 backdrop-blur text-white text-xs font-medium px-3 rounded-full border border-white/15">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Satellite view
                 </div>
 
-                <!-- FLOATING HERO CARDS OVERLAY (Positioned at the bottom center of the map) -->
-                <div id="hero-cards-container" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[900] flex gap-5 overflow-x-auto pb-3 pointer-events-auto transition-all duration-300 max-w-full px-6">
-                    
-                    <!-- Card 1: Babanag Ridge -->
-                    <div class="relative w-[300px] h-[200px] rounded-2xl overflow-hidden shadow-2xl border border-black/20 shrink-0 flex flex-col justify-end p-5 group cursor-pointer">
-                        <!-- Background Trail Image -->
-                        <img src="https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=600&q=80" alt="Babanag Ridge" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                        
-                        <!-- Dark Gradient Overlay for Readability -->
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                <!-- Top-right: start a new route -->
+                <button id="new-route-btn" type="button"
+                    class="absolute top-4 right-4 z-20 flex items-center gap-2 px-4 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold shadow-xl transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="size-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    New route
+                </button>
 
-                        <!-- Card Content -->
-                        <div class="relative z-10 text-white">
-                            <span class="inline-block px-2.5 py-1 bg-emerald-500/90 backdrop-blur-md text-[10px] font-semibold tracking-wider uppercase rounded-md mb-2">Moderate · 8.5 km</span>
-                            <h4 class="text-lg font-bold leading-snug">Babanag Ridge Trail</h4>
-                            <p class="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-emerald-400 shrink-0">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                                </svg>
-                                Balamban, Cebu
-                            </p>
-                        </div>
+                <!-- Recording status bar -->
+                <div id="recording-hud"
+                    class="hidden absolute top-16 left-1/2 -translate-x-1/2 z-20 items-center gap-5 px-5 py-3 rounded-2xl bg-black/90 backdrop-blur border border-emerald-500/50 shadow-2xl">
+                    <div class="flex items-center gap-2 text-sm font-semibold text-emerald-400">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Recording
                     </div>
-
-                    <!-- Card 2: Mt. Kan-Irag Peak -->
-                    <div class="relative w-[300px] h-[200px] rounded-2xl overflow-hidden shadow-2xl border border-black/20 shrink-0 flex flex-col justify-end p-5 group cursor-pointer">
-                        <!-- Background Trail Image -->
-                        <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80" alt="Mt. Kan-Irag Peak" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                        
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-
-                        <div class="relative z-10 text-white">
-                            <span class="inline-block px-2.5 py-1 bg-amber-500/90 backdrop-blur-md text-[10px] font-semibold tracking-wider uppercase rounded-md mb-2">Challenging · 12.2 km</span>
-                            <h4 class="text-lg font-bold leading-snug">Mt. Kan-Irag Peak</h4>
-                            <p class="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-amber-400 shrink-0">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                                </svg>
-                                Busay, Cebu City
-                            </p>
-                        </div>
+                    <div class="text-center">
+                        <div id="hud-distance" class="font-display text-xl font-bold leading-none">0.00</div>
+                        <div class="text-[11px] text-zinc-400 mt-1">km</div>
                     </div>
-
-                    <!-- Card 3: Cordova Baywalk -->
-                    <div class="relative w-[300px] h-[200px] rounded-2xl overflow-hidden shadow-2xl border border-black/20 shrink-0 flex flex-col justify-end p-5 group cursor-pointer">
-                        <!-- Background Trail Image -->
-                        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80" alt="Cordova Baywalk" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                        
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-
-                        <div class="relative z-10 text-white">
-                            <span class="inline-block px-2.5 py-1 bg-blue-500/90 backdrop-blur-md text-[10px] font-semibold tracking-wider uppercase rounded-md mb-2">Easy · 3.1 km</span>
-                            <h4 class="text-lg font-bold leading-snug">Cordova Baywalk Trail</h4>
-                            <p class="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 text-blue-400 shrink-0">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                                </svg>
-                                Buagsong, Cordova
-                            </p>
-                        </div>
+                    <div class="text-center">
+                        <div id="hud-time" class="font-display text-xl font-bold leading-none">00:00</div>
+                        <div class="text-[11px] text-zinc-400 mt-1">time</div>
                     </div>
-
+                    <div class="text-center">
+                        <div id="hud-points" class="font-display text-xl font-bold leading-none">1</div>
+                        <div class="text-[11px] text-zinc-400 mt-1">points</div>
+                    </div>
                 </div>
 
+                <!-- ============ TRAIL CARDS (loaded from the database) ============ -->
+                <div id="hero-cards-container" class="absolute bottom-4 inset-x-0 z-20 px-4 pointer-events-none transition-all duration-300">
+                    <div class="max-w-5xl mx-auto pointer-events-auto">
 
-                <!-- ROUTE CREATION MODAL -->
-                <div id="route-modal"
-                    class="absolute top-0 right-0 h-full w-96 max-w-full bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-[1000] translate-x-full transition-transform duration-300 flex flex-col border-l border-zinc-800 text-white rounded-l-2xl">
+                        <div id="hero-cards-list" class="flex justify-center gap-5 pb-3">
+                            <!-- Loading placeholders; replaced by trails from the database -->
+                            <div class="skeleton flex-1 max-w-[300px] h-[200px] rounded-2xl"></div>
+                            <div class="skeleton flex-1 max-w-[300px] h-[200px] rounded-2xl hidden sm:block"></div>
+                            <div class="skeleton flex-1 max-w-[300px] h-[200px] rounded-2xl hidden md:block"></div>
+                        </div>
+                    </div>
+                </div>
 
-                    <div class="flex items-center justify-between p-5 border-b border-zinc-800">
+                <!-- Dark layer behind side panels. Click it to close a panel. -->
+                <div id="panel-backdrop" class="absolute inset-0 z-30 bg-black/60 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+
+                <!-- ============ NEW ROUTE PANEL ============ -->
+                <div id="route-modal" role="dialog" aria-modal="true" aria-labelledby="route-modal-title"
+                    class="absolute top-0 right-0 h-full w-full sm:w-96 z-40 translate-x-full invisible pointer-events-none transition-[transform,visibility] duration-300 flex flex-col bg-black border-l border-white/10 text-white">
+
+                    <div class="flex items-center justify-between p-5 border-b border-white/10">
                         <div>
-                            <h3 class="font-bold text-lg">Create New Route</h3>
-                            <p class="text-xs text-zinc-400">Configure your walking trail</p>
+                            <h3 id="route-modal-title" class="font-display font-bold text-xl">New route</h3>
+                            <p class="text-xs text-zinc-400 mt-0.5">Name your walk, then start recording.</p>
                         </div>
 
-                        <button id="close-route-modal"
-                            class="text-zinc-400 hover:text-white p-2">
-                            ✕
+                        <button id="close-route-modal" type="button" aria-label="Close"
+                            class="size-9 grid place-items-center rounded-lg text-zinc-300 hover:bg-white hover:text-black transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     </div>
 
                     <div class="p-6 flex-1 overflow-y-auto space-y-5">
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                Route Name
-                            </label>
-
-                            <input type="text" id="route-name"
-                                placeholder="e.g. Cordova Coastal Trail"
-                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <label for="route-name" class="block text-sm font-semibold mb-2">Route name</label>
+                            <input type="text" id="route-name" maxlength="50" autocomplete="off"
+                                placeholder="e.g. Cordova coastal trail"
+                                class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                Description
-                            </label>
-
+                            <label for="route-description" class="block text-sm font-semibold mb-2">Description <span class="text-zinc-500 font-normal">(optional)</span></label>
                             <textarea id="route-description" rows="3"
-                                placeholder="Describe your walking route..."
-                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm resize-none focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                                placeholder="What should walkers expect?"
+                                class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm resize-none placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none"></textarea>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                Starting Coordinates
-                            </label>
-
-                            <div id="route-start-coordinates"
-                                class="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm font-mono text-emerald-400">
-                                Waiting for GPS...
+                            <span class="block text-sm font-semibold mb-2">Starting point</span>
+                            <div class="bg-zinc-900 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+                                <span id="gps-dot" class="w-3 h-3 rounded-full bg-zinc-500 shrink-0"></span>
+                                <div id="route-start-coordinates" class="text-sm text-zinc-200 flex-1">Waiting for GPS...</div>
+                                <button id="gps-retry-btn" type="button"
+                                    class="hidden text-xs font-semibold px-3 py-1.5 rounded-lg bg-white text-black hover:bg-emerald-400 transition-colors">
+                                    Try again
+                                </button>
                             </div>
+                            <p class="text-xs text-zinc-500 mt-2">Your current location becomes the starting point and recording begins right away.</p>
                         </div>
+                    </div>
 
-                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-                            <p class="text-xs text-emerald-400">
-                                Your current GPS location will be used as the starting point.
-                                Saving this route will automatically begin GPS tracking.
-                            </p>
-                        </div>
-
-                        <button id="save-route-btn"
-                            class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition">
-                            Save Starting Point & Start Recording
+                    <div class="p-6 border-t border-white/10 space-y-3">
+                        <button id="save-route-btn" type="button" disabled
+                            class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl font-bold text-sm transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">
+                            Start recording
                         </button>
-
+                        <button id="cancel-route-btn" type="button"
+                            class="w-full py-3 rounded-xl border border-white/15 text-sm font-semibold text-white hover:bg-white hover:text-black transition-colors">
+                            Cancel
+                        </button>
                     </div>
                 </div>
 
 
-                <!-- WAYPOINT CREATION MODAL -->
-                <div id="waypoint-modal"
-                    class="absolute top-0 right-0 h-full w-96 max-w-full bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-[1100] translate-x-full transition-transform duration-300 flex flex-col border-l border-zinc-800 text-white rounded-l-2xl">
+                <!-- ============ ADD WAYPOINT PANEL ============ -->
+                <div id="waypoint-modal" role="dialog" aria-modal="true" aria-labelledby="waypoint-modal-title"
+                    class="absolute top-0 right-0 h-full w-full sm:w-96 z-40 translate-x-full invisible pointer-events-none transition-[transform,visibility] duration-300 flex flex-col bg-black border-l border-white/10 text-white">
 
-                    <div class="flex items-center justify-between p-5 border-b border-zinc-800">
+                    <div class="flex items-center justify-between p-5 border-b border-white/10">
                         <div>
-                            <h3 class="font-bold text-lg">Add Waypoint</h3>
-                            <p class="text-xs text-zinc-400">Highlight an important location</p>
+                            <h3 id="waypoint-modal-title" class="font-display font-bold text-xl">Add waypoint</h3>
+                            <p class="text-xs text-zinc-400 mt-0.5">Mark a spot worth remembering.</p>
                         </div>
 
-                        <button id="close-waypoint-modal"
-                            class="text-zinc-400 hover:text-white p-2">
-                            ✕
+                        <button id="close-waypoint-modal" type="button" aria-label="Close"
+                            class="size-9 grid place-items-center rounded-lg text-zinc-300 hover:bg-white hover:text-black transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     </div>
 
                     <div class="p-6 flex-1 overflow-y-auto space-y-5">
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                Location Spot Name
-                            </label>
-
-                            <input type="text" id="waypoint-name"
-                                placeholder="e.g. Scenic Viewpoint"
-                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <label for="waypoint-name" class="block text-sm font-semibold mb-2">Spot name</label>
+                            <input type="text" id="waypoint-name" maxlength="50" autocomplete="off"
+                                placeholder="e.g. Scenic viewpoint"
+                                class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                Spot Description
-                            </label>
-
+                            <label for="waypoint-description" class="block text-sm font-semibold mb-2">Description <span class="text-zinc-500 font-normal">(optional)</span></label>
                             <textarea id="waypoint-description" rows="3"
-                                placeholder="Describe this important location..."
-                                class="w-full px-3 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                                placeholder="What makes this spot special?"
+                                class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm resize-none placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none"></textarea>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                GPS Coordinates
-                            </label>
-
+                            <span class="block text-sm font-semibold mb-2">Location</span>
                             <div id="waypoint-coordinates"
-                                class="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm font-mono text-blue-400">
-                                -
-                            </div>
+                                class="bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm text-emerald-400">-</div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-zinc-400 mb-2">
-                                Waypoint Photo
-                            </label>
+                            <span class="block text-sm font-semibold mb-2">Photo <span class="text-zinc-500 font-normal">(optional)</span></span>
 
                             <label for="waypoint-photo"
-                                class="flex flex-col items-center justify-center h-32 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-blue-500 transition">
+                                class="relative flex flex-col items-center justify-center h-36 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-emerald-400 transition-colors overflow-hidden">
 
-                                <span class="text-2xl mb-2">📷</span>
-                                <span class="text-xs text-zinc-300">
-                                    Upload or take a photo
-                                </span>
-                                <span class="text-[10px] text-zinc-500">
-                                    PNG or JPG
-                                </span>
+                                <img id="waypoint-photo-preview" alt="Photo preview" class="hidden absolute inset-0 w-full h-full object-cover">
 
-                                <input type="file" id="waypoint-photo"
-                                    accept="image/png,image/jpeg"
-                                    capture="environment"
-                                    class="hidden">
+                                <span class="relative text-sm text-zinc-300">Choose or take a photo</span>
+                                <span class="relative text-xs text-zinc-500 mt-1">PNG or JPG, up to 5 MB</span>
+
+                                <input type="file" id="waypoint-photo" accept="image/png,image/jpeg" capture="environment" class="hidden">
                             </label>
 
-                            <p id="waypoint-photo-name"
-                                class="text-xs text-zinc-500 mt-2"></p>
+                            <p id="waypoint-photo-name" class="text-xs text-zinc-400 mt-2"></p>
                         </div>
+                    </div>
 
-                        <button id="save-waypoint-btn"
-                            class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm transition">
-                            Save Waypoint
+                    <div class="p-6 border-t border-white/10 space-y-3">
+                        <button id="save-waypoint-btn" type="button"
+                            class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl font-bold text-sm transition-colors disabled:opacity-60">
+                            Save waypoint
                         </button>
-
+                        <button id="cancel-waypoint-btn" type="button"
+                            class="w-full py-3 rounded-xl border border-white/15 text-sm font-semibold text-white hover:bg-white hover:text-black transition-colors">
+                            Cancel
+                        </button>
                     </div>
                 </div>
 
 
-                <!-- ROUTE TRACKING CONTROLS -->
+                <!-- ============ RECORDING CONTROLS ============ -->
                 <div id="route-controls"
-                    class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[950] hidden flex-wrap justify-center gap-3 w-max max-w-[95%]">
+                    class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 hidden flex-wrap justify-center gap-3 w-max max-w-[95%]">
 
-                    <button id="add-waypoint-btn"
-                        class="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-xl text-sm font-semibold">
-                        + Add Waypoint
+                    <button id="recenter-btn" type="button"
+                        class="px-4 py-3 bg-black/90 border border-white/20 hover:bg-white hover:text-black text-white rounded-xl shadow-xl text-sm font-semibold transition-colors">
+                        Follow me
                     </button>
 
-                    <button id="stop-route-btn"
-                        class="px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl shadow-xl text-sm font-semibold">
-                        Stop Recording
+                    <button id="add-waypoint-btn" type="button"
+                        class="px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl shadow-xl text-sm font-bold transition-colors">
+                        Add waypoint
                     </button>
 
+                    <button id="stop-route-btn" type="button"
+                        class="px-4 py-3 bg-white hover:bg-zinc-200 text-black rounded-xl shadow-xl text-sm font-bold transition-colors">
+                        Finish route
+                    </button>
                 </div>
 
+                <!-- Small messages (saved, errors, tips) -->
+                <div id="toast-area" aria-live="polite"
+                    class="absolute top-32 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-[92%] max-w-sm pointer-events-none"></div>
+
             </section>
-
         </main>
-
     </div>
 
     <!-- Custom Application JavaScript -->
     <script src="{% static 'js/main.js' %}"></script>
-<script src="{% static 'js/home/home.js' %}"></script>
+    <script src="{% static 'js/home/home.js' %}"></script>
 
 </body>
 </html>

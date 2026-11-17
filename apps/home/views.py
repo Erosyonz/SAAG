@@ -13,6 +13,11 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from apps.accounts.models import Route
+from django.core.files.storage import default_storage
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from apps.accounts.models import Route
+
 
 
 
@@ -295,47 +300,95 @@ def finish_route(request, route_id):
 
 # MAP PIN LOCATION DATA
 
+def get_difficulty_label(distance_km, climb_meters):
+    """Turn distance and climb into a simple label for the trail cards."""
+    if distance_km < 5 and climb_meters < 100:
+        return 'Easy'
+    if distance_km < 10 and climb_meters < 400:
+        return 'Moderate'
+    return 'Challenging'
+
+
+def get_image_url(stored_path):
+    """Turn a saved file path into a link the browser can open."""
+    if not stored_path:
+        return None
+    try:
+        return default_storage.url(stored_path)
+    except Exception:
+        return None
+
+
+# MAP PIN + TRAIL CARD DATA
+# Default: every route is shown so people can discover trails.
+# To show only the logged-in user's routes, call this URL with ?mine=1
+
 @login_required
 def route_map_data(request):
     routes = (
         Route.objects
-        .filter(account=request.user)
+        .select_related('account')
         .prefetch_related('coordinates', 'waypoints')
+        .order_by('-created_at')
     )
+
+    if request.GET.get('mine') == '1':
+        routes = routes.filter(account=request.user)
 
     route_data = []
 
     for route in routes:
-        coordinates = route.coordinates.order_by('point_order')
-        waypoints = route.waypoints.all()
+        # Use the prefetched rows (no extra database trips)
+        coordinates = sorted(route.coordinates.all(), key=lambda point: point.point_order)
+        waypoints = list(route.waypoints.all())
+
+        distance_km = float(route.total_distance)
+        climb_meters = float(route.elevation)
+
+        waypoint_list = [
+            {
+                'id': waypoint.route_wp_id,
+                'name': waypoint.location_spot_name,
+                'description': waypoint.spot_description,
+                'image': get_image_url(waypoint.spot_image),
+                'latitude': float(waypoint.latitude),
+                'longitude': float(waypoint.longitude),
+            }
+            for waypoint in waypoints
+        ]
+
+        # The first waypoint that has a photo becomes the card picture
+        cover_image = next(
+            (waypoint['image'] for waypoint in waypoint_list if waypoint['image']),
+            None
+        )
+
+        creator_name = str(route.account).strip() or route.account.username
 
         route_data.append({
             'route_id': route.route_id,
             'name': route.route_name,
-            'description': route.description,
-            'total_distance': float(route.total_distance),
+            'description': route.description or '',
+            'total_distance': distance_km,
+            'elevation': climb_meters,
             'estimated_time': route.estimated_time,
+            'difficulty': get_difficulty_label(distance_km, climb_meters),
+            'created_by': creator_name,
+            'is_mine': route.account_id == request.user.pk,
+            'created_at': route.created_at.isoformat(),
+            'cover_image': cover_image,
 
             'coordinates': [
                 {
                     'latitude': float(point.latitude),
                     'longitude': float(point.longitude),
                     'elevation': point.elevation,
-                    'point_order': point.point_order
+                    'point_order': point.point_order,
                 }
                 for point in coordinates
             ],
 
-            'waypoints': [
-                {
-                    'name': waypoint.location_spot_name,
-                    'description': waypoint.spot_description,
-                    'image': waypoint.spot_image,
-                    'latitude': float(waypoint.latitude),
-                    'longitude': float(waypoint.longitude)
-                }
-                for waypoint in waypoints
-            ]
+            'waypoints': waypoint_list,
         })
 
     return JsonResponse({'routes': route_data})
