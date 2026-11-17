@@ -19,6 +19,8 @@ const DEFAULT_MAP_CENTER = [10.3157, 123.8907];
 const MIN_STEP_METERS = 5;        // ignore GPS jitter smaller than this
 const MAX_ACCURACY_METERS = 50;   // ignore very inaccurate GPS readings
 const MIN_CLIMB_METERS = 3;       // count a climb only if it is at least this much
+const SHOW_START_END_LINK = true; // dashed straight line from start to end (set false to hide)
+const ROUTE_LOOP_METERS = 25;     // if a route ends this close to its start, treat it as a loop
 
 
 // ==========================================
@@ -47,6 +49,9 @@ let followUser = true;
 
 let liveLayer = null;
 let liveTrail = null;
+let liveTrailOutline = null;
+let liveLink = null;
+let liveStart = null;
 let liveDot = null;
 let gpsWatcher = null;
 let hudTimer = null;
@@ -389,17 +394,40 @@ function beginRecordingScreen(lat, lng) {
 
     liveLayer = L.layerGroup().addTo(map);
 
-    liveTrail = L.polyline([[lat, lng]], {
-        color: '#10b981',
-        weight: 6,
-        opacity: 0.95,
-        lineCap: 'round',
-        lineJoin: 'round'
+    liveStart = [lat, lng];
+
+    // Dashed line from the start to where you are now
+    liveLink = L.polyline([liveStart, liveStart], {
+        color: '#ffffff',
+        weight: 2,
+        opacity: 0.85,
+        dashArray: '4 10',
+        interactive: false
     }).addTo(liveLayer);
 
-    L.marker([lat, lng], { icon: createStartIcon(false), zIndexOffset: 900 })
+    // White outline under the green line so it stands out on satellite photos
+    liveTrailOutline = L.polyline([liveStart], {
+        color: '#ffffff',
+        weight: 11,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+        bubblingMouseEvents: false
+    }).addTo(liveLayer);
+
+    liveTrail = L.polyline([liveStart], {
+        color: '#10b981',
+        weight: 6,
+        opacity: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+        bubblingMouseEvents: false
+    }).addTo(liveLayer);
+
+    L.marker(liveStart, { icon: createStartIcon(false), zIndexOffset: 900 })
         .addTo(liveLayer)
-        .bindPopup('Route starting point', { autoPan: false });
+        .bindPopup('Route starting point', { autoPan: false })
+        .bindTooltip('Start', PIN_TAG_OPTIONS);
 
     liveDot = L.marker([lat, lng], {
         icon: L.divIcon({ className: '', html: '<div class="live-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
@@ -518,7 +546,9 @@ function startGPSTracking() {
             }
 
             addRouteCoordinate(lat, lng, altitude);
+            liveTrailOutline.addLatLng(newPosition);
             liveTrail.addLatLng(newPosition);
+            liveLink.setLatLngs([liveStart, newPosition]);
             routeData.TotalDistance += stepMeters / 1000;
 
             updateRecordingHud();
@@ -741,6 +771,9 @@ function endRecordingScreen() {
     }
 
     liveTrail = null;
+    liveTrailOutline = null;
+    liveLink = null;
+    liveStart = null;
     liveDot = null;
     routeData = null;
     activeRouteId = null;
@@ -812,15 +845,54 @@ function createStartIcon(isMine) {
     });
 }
 
+const PIN_TAG_OPTIONS = {
+    permanent: true,
+    direction: 'right',
+    offset: [16, -18],
+    className: 'pin-tag'
+};
+
+function createEndIcon() {
+    return L.divIcon({
+        className: '',
+        html: '<div class="end-pin"><span>&#127937;</span></div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 36]
+    });
+}
+
+function formatDistance(meters) {
+    return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(2)} km`;
+}
+
+function buildEndPopup(route, gapMeters) {
+    return `
+        <div>
+            <p class="trail-popup-title">Route end</p>
+            <p class="trail-popup-text" style="margin-bottom:0">
+                ${escapeHtml(route.name)} finishes ${formatDistance(gapMeters)} in a straight line from where it started.
+            </p>
+        </div>`;
+}
+
 function buildRoutePopup(route) {
+    const climbMeters = Math.round(Number(route.elevation || 0));
+    const owner = route.is_mine ? 'Your route' : `By ${escapeHtml(route.created_by)}`;
+
     return `
         <div>
             <p class="trail-popup-title">${escapeHtml(route.name)}</p>
             ${route.description ? `<p class="trail-popup-text">${escapeHtml(route.description)}</p>` : ''}
-            <div class="trail-popup-stats">
-                <span class="trail-popup-stat">${Number(route.total_distance).toFixed(2)} km</span>
-                <span class="trail-popup-stat">${formatMinutes(route.estimated_time)}</span>
+
+            <div class="trail-popup-grid">
+                <div><strong>${Number(route.total_distance).toFixed(2)}</strong><span>km</span></div>
+                <div><strong>${formatMinutes(route.estimated_time)}</strong><span>time</span></div>
+                <div><strong>${climbMeters}</strong><span>m climb</span></div>
+            </div>
+
+            <div class="trail-popup-footer">
                 <span class="trail-popup-stat">${escapeHtml(route.difficulty)}</span>
+                <span class="trail-popup-owner">${owner}</span>
             </div>
         </div>`;
 }
@@ -832,14 +904,49 @@ function displaySavedRoute(route) {
 
     const detailsLayer = L.layerGroup();
 
-    if (points.length >= 2) {
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    const hasPath = points.length >= 2;
+    const gapMeters = hasPath ? getDistance(firstPoint[0], firstPoint[1], lastPoint[0], lastPoint[1]) : 0;
+    const endsNearStart = !hasPath || gapMeters < ROUTE_LOOP_METERS;
+
+    if (hasPath) {
+        // White outline under the green line so it stands out on satellite photos
         L.polyline(points, {
-            color: '#34d399',
-            weight: 5,
-            opacity: 0.95,
+            color: '#ffffff',
+            weight: 10,
+            opacity: 0.9,
             lineCap: 'round',
-            lineJoin: 'round'
+            lineJoin: 'round',
+            bubblingMouseEvents: false
         }).addTo(detailsLayer);
+
+        L.polyline(points, {
+            color: '#10b981',
+            weight: 5,
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+            bubblingMouseEvents: false
+        }).addTo(detailsLayer);
+
+        if (!endsNearStart) {
+            // Dashed straight line connecting the start to the end
+            if (SHOW_START_END_LINK) {
+                L.polyline([firstPoint, lastPoint], {
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 0.85,
+                    dashArray: '4 10',
+                    interactive: false
+                }).addTo(detailsLayer);
+            }
+
+            L.marker(lastPoint, { icon: createEndIcon(), zIndexOffset: 900 })
+                .addTo(detailsLayer)
+                .bindPopup(buildEndPopup(route, gapMeters), { autoPan: false })
+                .bindTooltip('End', PIN_TAG_OPTIONS);
+        }
     }
 
     (route.waypoints || []).forEach((waypoint) => {
@@ -861,7 +968,7 @@ function displaySavedRoute(route) {
     startMarker.bindPopup(buildRoutePopup(route), { autoPan: false });
     startMarker.on('click', () => focusTrail(route.route_id));
 
-    savedTrails.set(route.route_id, { route, startMarker, detailsLayer, points });
+    savedTrails.set(route.route_id, { route, startMarker, detailsLayer, points, endsNearStart });
 }
 
 function focusTrail(routeId) {
@@ -885,6 +992,7 @@ function focusTrail(routeId) {
         animate: true
     });
 
+    trail.startMarker.bindTooltip(trail.endsNearStart ? 'Start and end' : 'Start', PIN_TAG_OPTIONS);
     trail.startMarker.openPopup();
     highlightTrailCard(routeId);
 }
@@ -896,6 +1004,7 @@ function clearFocusedTrail() {
     if (trail) {
         map.removeLayer(trail.detailsLayer);
         trail.startMarker.closePopup();
+        trail.startMarker.unbindTooltip();
     }
 
     focusedRouteId = null;

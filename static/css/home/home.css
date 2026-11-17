@@ -214,3 +214,79 @@ body {
         transition-duration: 0.01ms !important;
     }
 }
+
+
+/* ---------- Route start / end ---------- */
+.end-pin {
+    width: 36px;
+    height: 36px;
+    background: #fff;
+    border: 3px solid #000;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+
+.end-pin span {
+    transform: rotate(45deg);
+    font-size: 15px;
+}
+
+.leaflet-tooltip.pin-tag {
+    background: #000;
+    color: #fff;
+    border: 1px solid #10b981;
+    border-radius: 8px;
+    padding: 2px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-tooltip-right.pin-tag::before {
+    border-right-color: #10b981;
+}
+
+/* ---------- Route popup ---------- */
+.trail-popup-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.trail-popup-grid div {
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 6px 4px;
+    text-align: center;
+}
+
+.trail-popup-grid strong {
+    display: block;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 15px;
+    line-height: 1.1;
+}
+
+.trail-popup-grid span {
+    display: block;
+    font-size: 11px;
+    color: #a1a1aa;
+    margin-top: 2px;
+}
+
+.trail-popup-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.trail-popup-owner {
+    font-size: 12px;
+    color: #a1a1aa;
+}
