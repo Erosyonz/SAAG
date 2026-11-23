@@ -1,122 +1,254 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SA-AG - User Profile</title>
-    
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Tailwind Custom Config -->
-    <script src="{% static 'js/profiles/profile.js' %}"></script>
-    
-    <!-- Font Awesome Icons & Google Fonts -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>SA-AG - Profile</title>
 
-    <!-- Custom Stylesheet -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{% static 'css/profiles/profile.css' %}">
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6 sm:p-12 antialiased text-slate-800">
 
-    <!-- Increased max-width from max-w-xl to max-w-4xl for a wider layout -->
-    <main class="w-full max-w-4xl">
-        <div class="relative overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100">
-            
-            <!-- Scenic Cover Banner Background -->
-            <div class="absolute inset-0 z-0 h-full w-full bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=80');">
-                <div class="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-transparent"></div>
-            </div>
+<body class="bg-black min-h-screen text-white antialiased">
 
-            <!-- Top Gear Action Button -->
-            <div class="absolute top-6 right-6 z-20">
-                <a href="{% url 'user_settings' %}" title="Settings" class="w-12 h-12 bg-white/90 hover:bg-white text-slate-600 hover:text-forest-800 rounded-full flex items-center justify-center shadow-md transition border border-slate-100">
-                    <i class="fa-solid fa-gear text-base"></i>
-                </a>
-            </div>
+    <div class="flex h-screen w-full overflow-hidden bg-black">
 
-            <!-- Card Content with Larger Padding -->
-            <div class="relative z-10 p-8 sm:p-12 space-y-8">
-                
-                <!-- Avatar & Basic Bio -->
-                <div class="space-y-4 max-w-md">
-                    <div class="w-28 h-28 rounded-full bg-forest-800 text-amber-400 font-bold text-3xl flex items-center justify-center border-4 border-white shadow-lg overflow-hidden">
-                        {% if request.user.profile.avatar %}
-                            <img src="{{ request.user.profile.avatar.url }}" alt="Profile" class="w-full h-full object-cover">
-                        {% else %}
-                            <span>{{ request.user.username|first|upper|default:"H" }}</span>
-                        {% endif %}
-                    </div>
-
-                    <div>
-                        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight">
-                            {{ request.user.get_full_name|default:request.user.username }}
-                        </h1>
-                        <p class="text-sm sm:text-base text-slate-600 font-medium mt-1">
-                            Exploring nature & trailing with <span class="text-forest-800 font-semibold">SAAG</span>
-                        </p>
-                    </div>
-
-                    <!-- Meta Tags -->
-                    <div class="flex flex-wrap items-center gap-6 text-sm text-slate-500 font-medium pt-1">
-                        <span class="flex items-center gap-2">
-                            <i class="fa-solid fa-at text-slate-400"></i>
-                            {{ request.user.username }}
-                        </span>
-                        <span class="flex items-center gap-2">
-                            <i class="fa-solid fa-envelope text-slate-400"></i>
-                            {{ request.user.email|default:"No email set" }}
-                        </span>
-                    </div>
+        <!-- ================= SIDEBAR (same as home) ================= -->
+        <aside id="sidebar-header"
+            class="bg-black text-white w-16 shrink-0 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-50 border-r border-white/10 transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0">
+            <div>
+                <div class="flex flex-col items-center gap-3 py-4 mb-2 border-b border-white/10">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500 text-black grid place-items-center font-display font-extrabold text-sm">SA</div>
+                    <button id="close-sidebar-btn" type="button" aria-label="Close menu" class="md:hidden text-zinc-400 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
-                <!-- Stats Grid Section (Wider & Spaced Out) -->
-                <div class="flex items-center gap-8 py-4 border-t border-b border-slate-200/80 max-w-md">
-                    <div>
-                        <div class="flex items-center gap-1.5 text-slate-900 font-bold text-lg">
-                            <i class="fa-solid fa-star text-amber-500 text-sm"></i>
-                            <span>4.9</span>
-                        </div>
-                        <span class="text-xs text-slate-400 font-medium tracking-wide">rating</span>
-                    </div>
-
-                    <div class="border-l border-slate-200 pl-8">
-                        <div class="text-slate-900 font-bold text-lg">
-                            {{ request.user.date_joined|date:"M Y" }}
-                        </div>
-                        <span class="text-xs text-slate-400 font-medium tracking-wide">member since</span>
-                    </div>
-
-                    <div class="border-l border-slate-200 pl-8">
-                        <div class="text-slate-900 font-bold text-lg">
-                            Active
-                        </div>
-                        <span class="text-xs text-slate-400 font-medium tracking-wide">status</span>
-                    </div>
-                </div>
-
-                <!-- Footer Action Buttons -->
-                <div class="flex items-center justify-between pt-2">
-                    <div class="flex items-center gap-3 text-slate-600 text-sm font-semibold">
-                        <span class="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 shadow-sm flex items-center justify-center">
-                            <i class="fa-solid fa-tree text-forest-800"></i>
-                        </span>
-                        <span class="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 shadow-sm flex items-center justify-center">
-                            <i class="fa-solid fa-compass text-forest-800"></i>
-                        </span>
-                        <span class="ml-1 text-slate-500 text-xs">Hiker</span>
-                    </div>
-
-                    <a href="{% url 'home' %}" class="px-8 py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-full font-semibold text-sm transition-all shadow-lg flex items-center gap-2">
-                        <span>Back to Home</span>
+                <nav class="space-y-1 px-2">
+                    <a href="{% url 'home' %}" title="Home" aria-label="Home"
+                        class="nav-link flex items-center justify-center py-3 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                        </svg>
                     </a>
+                    <a href="{% url 'profile' %}" title="Profile" aria-label="Profile" aria-current="page"
+                        class="nav-link active flex items-center justify-center py-3 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                    </a>
+                </nav>
+            </div>
+            <div class="py-3 border-t border-white/10 text-[11px] text-zinc-500 text-center">&copy; SAAG</div>
+        </aside>
+
+
+        <!-- ================= MAIN ================= -->
+        <main class="flex-1 min-w-0 h-full overflow-y-auto relative">
+
+            <button id="open-sidebar-btn" type="button" aria-label="Open menu"
+                class="md:hidden absolute top-4 left-4 z-20 size-10 grid place-items-center rounded-xl bg-black/90 border border-white/15 text-white backdrop-blur">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+            </button>
+
+            <!-- Banner -->
+            <div class="trail-card-fallback h-40 sm:h-52 w-full"></div>
+
+            <div class="mx-auto w-full max-w-5xl px-5 sm:px-8 pb-16">
+
+                <!-- Who you are -->
+                <section class="-mt-14 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+                        <div class="relative size-28 shrink-0 overflow-hidden rounded-3xl border-4 border-black bg-emerald-500 text-black grid place-items-center font-display text-4xl font-extrabold">
+                            <span>{{ user.first_name|default:user.username|first|upper }}</span>
+                            {% if user.profile %}
+                                <img src="{{ user.profile }}" alt="" onerror="this.remove()"
+                                    class="absolute inset-0 h-full w-full object-cover">
+                            {% endif %}
+                        </div>
+                        <div class="min-w-0">
+                            <h1 class="font-display text-3xl sm:text-4xl font-bold leading-tight truncate">
+                                {{ user.get_full_name|default:user.username }}
+                            </h1>
+                            <p class="mt-1 text-sm text-zinc-400 truncate">@{{ user.username }}{% if user.email %} &middot; {{ user.email }}{% endif %}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button id="open-edit-btn" type="button"
+                            class="px-5 h-11 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold transition-colors">
+                            Edit profile
+                        </button>
+                        <a href="{% url 'home' %}"
+                            class="px-5 h-11 inline-flex items-center rounded-xl border border-white/15 text-sm font-semibold text-white hover:bg-white hover:text-black transition-colors">
+                            Back to map
+                        </a>
+                    </div>
+                </section>
+
+                <p class="mt-6 max-w-2xl text-sm leading-relaxed {% if user.bio %}text-zinc-200{% else %}text-zinc-500{% endif %}">
+                    {{ user.bio|default:"No bio yet. Use Edit profile to tell people about your hiking." }}
+                </p>
+
+                <!-- Numbers -->
+                <dl class="mt-8 grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-zinc-950">
+                    <div class="p-5">
+                        <dd class="font-display text-2xl font-bold">{{ created_count }}</dd>
+                        <dt class="text-xs text-zinc-400 mt-1">Routes created</dt>
+                    </div>
+                    <div class="p-5">
+                        <dd class="font-display text-2xl font-bold">{{ completed_count }}</dd>
+                        <dt class="text-xs text-zinc-400 mt-1">Routes finished</dt>
+                    </div>
+                    <div class="p-5">
+                        <dd class="font-display text-2xl font-bold text-emerald-400">{{ total_km|floatformat:1 }} <span class="text-sm font-semibold text-zinc-400">km</span></dd>
+                        <dt class="text-xs text-zinc-400 mt-1">Recorded by you</dt>
+                    </div>
+                </dl>
+
+                <!-- Tabs -->
+                <div class="mt-10 flex gap-2 border-b border-white/10" role="tablist">
+                    <button type="button" role="tab" data-tab="created" aria-selected="true"
+                        class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-emerald-400 text-white">
+                        Created ({{ created_count }})
+                    </button>
+                    <button type="button" role="tab" data-tab="completed" aria-selected="false"
+                        class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-zinc-400 hover:text-white">
+                        Finished ({{ completed_count }})
+                    </button>
                 </div>
 
-            </div>
-        </div>
-    </main>
+                <section id="tab-created" role="tabpanel" class="mt-6">
+                    {% if created_routes %}
+                        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {% for card in created_routes %}{% include 'profiles/route_card.html' %}{% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="rounded-2xl border border-white/10 bg-zinc-950 p-6 flex flex-wrap items-center justify-between gap-4">
+                            <p class="text-sm text-zinc-300">You have not recorded a route yet. Start one on the map.</p>
+                            <a href="{% url 'home' %}" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold transition-colors">New route</a>
+                        </div>
+                    {% endif %}
+                </section>
 
+                <section id="tab-completed" role="tabpanel" class="mt-6 hidden">
+                    {% if completed_routes %}
+                        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {% for card in completed_routes %}{% include 'profiles/route_card.html' %}{% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="rounded-2xl border border-white/10 bg-zinc-950 p-6">
+                            <p class="text-sm text-zinc-300">Routes you finish will be listed here.</p>
+                        </div>
+                    {% endif %}
+                </section>
+            </div>
+        </main>
+
+
+        <!-- ================= EDIT PROFILE PANEL ================= -->
+        <div id="panel-backdrop" class="fixed inset-0 z-30 bg-black/60 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+        <aside id="edit-panel" role="dialog" aria-modal="true" aria-labelledby="edit-title"
+            class="fixed top-0 right-0 h-full w-full sm:w-96 z-40 translate-x-full invisible pointer-events-none transition-[transform,visibility] duration-300 bg-black border-l border-white/10 text-white">
+
+            <form id="profile-form" data-url="{% url 'profile_update' %}" novalidate class="flex h-full flex-col">
+                {% csrf_token %}
+
+                <div class="flex items-center justify-between p-5 border-b border-white/10">
+                    <div>
+                        <h3 id="edit-title" class="font-display font-bold text-xl">Edit profile</h3>
+                        <p class="text-xs text-zinc-400 mt-0.5">Update your photo, name and bio.</p>
+                    </div>
+                    <button id="close-edit-btn" type="button" aria-label="Close"
+                        class="size-9 grid place-items-center rounded-lg text-zinc-300 hover:bg-white hover:text-black transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-6 space-y-5">
+
+                    <div class="flex items-center gap-4">
+                        <div class="size-20 shrink-0 overflow-hidden rounded-2xl bg-emerald-500 text-black grid place-items-center font-display text-2xl font-extrabold">
+                            <img id="photo-preview" alt="" src="{{ user.profile|default:'' }}"
+                            onerror="this.classList.add('hidden'); document.getElementById('photo-initial').classList.remove('hidden')"
+                            class="h-full w-full object-cover {% if not user.profile %}hidden{% endif %}">
+                            <span id="photo-initial" class="{% if user.profile %}hidden{% endif %}">{{ user.first_name|default:user.username|first|upper }}</span>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="photo-input"
+                                class="inline-block cursor-pointer px-4 py-2 rounded-lg border border-white/15 text-sm font-semibold hover:bg-white hover:text-black transition-colors">
+                                Choose photo
+                            </label>
+                            <input type="file" id="photo-input" name="photo" accept="image/png,image/jpeg" class="hidden">
+                            <input type="hidden" id="remove-photo" name="remove_photo" value="0">
+                            <button id="remove-photo-btn" type="button" class="block text-xs text-zinc-400 hover:text-white">Remove photo</button>
+                            <p class="text-xs text-zinc-500">PNG or JPG, up to 5 MB</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="first-name" class="block text-sm font-semibold mb-2">First name</label>
+                            <input id="first-name" name="first_name" type="text" maxlength="50" value="{{ user.first_name }}" autocomplete="given-name"
+                                class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
+                        </div>
+                        <div>
+                            <label for="last-name" class="block text-sm font-semibold mb-2">Last name</label>
+                            <input id="last-name" name="last_name" type="text" maxlength="50" value="{{ user.last_name }}" autocomplete="family-name"
+                                class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="username" class="block text-sm font-semibold mb-2">Username</label>
+                        <input id="username" name="username" type="text" maxlength="150" value="{{ user.username }}" autocomplete="username"
+                            class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
+                    </div>
+
+                    <div>
+                        <label for="email" class="block text-sm font-semibold mb-2">Email</label>
+                        <input id="email" name="email" type="email" maxlength="254" value="{{ user.email }}" autocomplete="email"
+                            class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
+                    </div>
+
+                    <div>
+                        <label for="bio" class="block text-sm font-semibold mb-2">Bio <span class="text-zinc-500 font-normal">(optional)</span></label>
+                        <textarea id="bio" name="bio" rows="4" maxlength="255" placeholder="Tell people about your hiking"
+                            class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm resize-none placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">{{ user.bio|default:"" }}</textarea>
+                        <p id="bio-count" class="mt-1 text-right text-xs text-zinc-500"></p>
+                    </div>
+                </div>
+
+                <div class="p-6 border-t border-white/10 space-y-3">
+                    <button id="save-profile-btn" type="submit"
+                        class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl font-bold text-sm transition-colors disabled:opacity-60">
+                        Save changes
+                    </button>
+                    <button id="cancel-edit-btn" type="button"
+                        class="w-full py-3 rounded-xl border border-white/15 text-sm font-semibold text-white hover:bg-white hover:text-black transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </aside>
+
+        <div id="toast-area" aria-live="polite"
+            class="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-[92%] max-w-sm pointer-events-none"></div>
+    </div>
+
+    <script src="{% static 'js/profiles/profile.js' %}"></script>
 </body>
 </html>
