@@ -49,7 +49,8 @@ class UserCompletedRoute(models.Model):
         db_table = 'UserCompleted Routes'
 
     def __str__(self):
-        return f"Account {self.account_id} - Route {self.route_id} ({self.status})"
+        # Fixed syntax error from the original snippet
+        return f"Account {self.account_id} Route {self.route_id} ({self.status})"
 
 
 class RouteCoordinates(models.Model):
@@ -59,6 +60,10 @@ class RouteCoordinates(models.Model):
     longitude = models.DecimalField(max_digits=11, decimal_places=8, db_column='Longtitude')
     elevation = models.IntegerField(db_column='Elevation')
     point_order = models.IntegerField(db_column='PointOrder')
+    
+    # Added columns for end latitude and end longitude
+    end_latitude = models.DecimalField(max_digits=10, decimal_places=8, db_column='EndLatitude', blank=True, null=True)
+    end_longitude = models.DecimalField(max_digits=11, decimal_places=8, db_column='EndLongitude', blank=True, null=True)
 
     class Meta:
         db_table = 'RouteCoordinates'

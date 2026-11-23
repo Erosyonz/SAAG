@@ -268,11 +268,51 @@ def finish_route(request, route_id):
         if distance > Decimal('999.99'):
             raise ValueError('Route distance exceeds the database field limit.')
 
+        
         route = get_object_or_404(
             Route,
             route_id=route_id,
             account=request.user
         )
+
+
+        # GET LAST GPS COORDINATE (excluding initial starting point)
+        last_gps_coordinate = RouteCoordinates.objects.filter(
+            route=route,
+            point_order__gt=1
+        ).order_by('-point_order').first()
+
+        # GET LAST WAYPOINT
+        last_waypoint = RouteWaypoint.objects.filter(
+            route=route
+        ).order_by('-route_wp_id').first()
+
+        # DETERMINE END COORDINATES
+        if last_gps_coordinate:
+            end_latitude = last_gps_coordinate.latitude
+            end_longitude = last_gps_coordinate.longitude
+
+        elif last_waypoint:
+            end_latitude = last_waypoint.latitude
+            end_longitude = last_waypoint.longitude
+
+        else:
+            end_latitude = None
+            end_longitude = None
+
+        # SAVE END COORDINATES
+        if end_latitude is not None and end_longitude is not None:
+            last_coordinate = RouteCoordinates.objects.filter(
+                route=route
+            ).order_by('-point_order').first()
+
+            if last_coordinate:
+                last_coordinate.end_latitude = end_latitude
+                last_coordinate.end_longitude = end_longitude
+
+                last_coordinate.save(
+                    update_fields=['end_latitude', 'end_longitude']
+                )
 
         route.total_distance = distance.quantize(Decimal('0.01'))
         route.elevation = elevation.quantize(Decimal('0.01'))
@@ -283,6 +323,7 @@ def finish_route(request, route_id):
             'elevation',
             'estimated_time'
         ])
+
 
         return JsonResponse({
             'success': True,
@@ -378,15 +419,26 @@ def route_map_data(request):
             'created_at': route.created_at.isoformat(),
             'cover_image': cover_image,
 
+            
             'coordinates': [
                 {
                     'latitude': float(point.latitude),
                     'longitude': float(point.longitude),
                     'elevation': point.elevation,
                     'point_order': point.point_order,
+
+                    'end_latitude': (
+                        float(point.end_latitude)
+                        if point.end_latitude is not None else None
+                    ),
+                    'end_longitude': (
+                        float(point.end_longitude)
+                        if point.end_longitude is not None else None
+                    ),
                 }
                 for point in coordinates
             ],
+
 
             'waypoints': waypoint_list,
         })

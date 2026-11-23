@@ -1,0 +1,170 @@
+ .gitignore                                         |   23 +
+ BASELINE_COMMIT.txt                                |    1 +
+ .../__init__.py => GIT_ALL_COMMITTED_CHANGES.patch |    0
+ GIT_COMMIT_DETAILS.txt                             |    8 +
+ .../migrations/__init__.py => GIT_DIFF_STAT.txt    |    0
+ GIT_HISTORY.txt                                    |    2 +
+ GIT_STATUS.txt                                     |    6 +
+ GIT_UNCOMMITTED_CHANGES.patch                      |  189 +++
+ Procfile                                           |    1 +
+ accounts/apps.py                                   |    5 -
+ accounts/migrations/0001_initial.py                |   44 -
+ accounts/models.py                                 |   13 -
+ accounts/urls.py                                   |    7 -
+ apps/__init__.py                                   |    0
+ apps/__pycache__/__init__.cpython-313.pyc          |  Bin 0 -> 147 bytes
+ apps/__pycache__/__init__.cpython-314.pyc          |  Bin 0 -> 161 bytes
+ apps/accounts/__init__.py                          |    0
+ apps/accounts/__pycache__/__init__.cpython-313.pyc |  Bin 0 -> 151 bytes
+ apps/accounts/__pycache__/__init__.cpython-314.pyc |  Bin 0 -> 170 bytes
+ apps/accounts/__pycache__/admin.cpython-313.pyc    |  Bin 0 -> 329 bytes
+ apps/accounts/__pycache__/admin.cpython-314.pyc    |  Bin 0 -> 730 bytes
+ apps/accounts/__pycache__/apps.cpython-313.pyc     |  Bin 0 -> 531 bytes
+ apps/accounts/__pycache__/apps.cpython-314.pyc     |  Bin 0 -> 542 bytes
+ apps/accounts/__pycache__/models.cpython-313.pyc   |  Bin 0 -> 641 bytes
+ apps/accounts/__pycache__/models.cpython-314.pyc   |  Bin 0 -> 6765 bytes
+ apps/accounts/__pycache__/urls.cpython-313.pyc     |  Bin 0 -> 823 bytes
+ apps/accounts/__pycache__/urls.cpython-314.pyc     |  Bin 0 -> 914 bytes
+ apps/accounts/__pycache__/views.cpython-313.pyc    |  Bin 0 -> 3166 bytes
+ apps/accounts/__pycache__/views.cpython-314.pyc    |  Bin 0 -> 3198 bytes
+ apps/accounts/admin.py                             |    8 +
+ apps/accounts/apps.py                              |    7 +
+ apps/accounts/migrations/0001_initial.py           |  105 ++
+ apps/accounts/migrations/__init__.py               |    0
+ .../__pycache__/0001_initial.cpython-313.pyc       |  Bin 0 -> 3541 bytes
+ .../__pycache__/0001_initial.cpython-314.pyc       |  Bin 0 -> 7567 bytes
+ ...ions_remove_account_id_and_more.cpython-314.pyc |  Bin 0 -> 5604 bytes
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 162 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 181 bytes
+ apps/accounts/models.py                            |   80 ++
+ {accounts => apps/accounts}/tests.py               |    0
+ apps/accounts/urls.py                              |   18 +
+ {accounts => apps/accounts}/views.py               |    7 +-
+ apps/home/__init__.py                              |    0
+ apps/home/__pycache__/__init__.cpython-313.pyc     |  Bin 0 -> 152 bytes
+ apps/home/__pycache__/__init__.cpython-314.pyc     |  Bin 0 -> 166 bytes
+ apps/home/__pycache__/admin.cpython-313.pyc        |  Bin 0 -> 196 bytes
+ apps/home/__pycache__/admin.cpython-314.pyc        |  Bin 0 -> 210 bytes
+ apps/home/__pycache__/apps.cpython-313.pyc         |  Bin 0 -> 517 bytes
+ apps/home/__pycache__/apps.cpython-314.pyc         |  Bin 0 -> 528 bytes
+ apps/home/__pycache__/models.cpython-313.pyc       |  Bin 0 -> 193 bytes
+ apps/home/__pycache__/models.cpython-314.pyc       |  Bin 0 -> 207 bytes
+ apps/home/__pycache__/urls.cpython-314.pyc         |  Bin 0 -> 905 bytes
+ apps/home/__pycache__/views.cpython-313.pyc        |  Bin 0 -> 541 bytes
+ apps/home/__pycache__/views.cpython-314.pyc        |  Bin 0 -> 13673 bytes
+ {accounts => apps/home}/admin.py                   |    2 -
+ apps/home/apps.py                                  |    6 +
+ apps/home/migrations/__init__.py                   |    0
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 163 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 177 bytes
+ apps/home/models.py                                |    1 +
+ apps/home/tests.py                                 |    3 +
+ apps/home/urls.py                                  |   27 +
+ apps/home/views.py                                 |  394 ++++++
+ apps/login/__init__.py                             |    0
+ apps/login/__pycache__/__init__.cpython-313.pyc    |  Bin 0 -> 153 bytes
+ apps/login/__pycache__/__init__.cpython-314.pyc    |  Bin 0 -> 167 bytes
+ apps/login/__pycache__/admin.cpython-313.pyc       |  Bin 0 -> 197 bytes
+ apps/login/__pycache__/admin.cpython-314.pyc       |  Bin 0 -> 211 bytes
+ apps/login/__pycache__/apps.cpython-313.pyc        |  Bin 0 -> 459 bytes
+ apps/login/__pycache__/apps.cpython-314.pyc        |  Bin 0 -> 470 bytes
+ apps/login/__pycache__/models.cpython-313.pyc      |  Bin 0 -> 194 bytes
+ apps/login/__pycache__/models.cpython-314.pyc      |  Bin 0 -> 208 bytes
+ apps/login/__pycache__/views.cpython-313.pyc       |  Bin 0 -> 1098 bytes
+ apps/login/__pycache__/views.cpython-314.pyc       |  Bin 0 -> 1121 bytes
+ apps/login/admin.py                                |    3 +
+ apps/login/apps.py                                 |    5 +
+ apps/login/migrations/__init__.py                  |    0
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 164 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 178 bytes
+ apps/login/models.py                               |    3 +
+ apps/login/tests.py                                |    3 +
+ apps/login/views.py                                |   19 +
+ apps/profiles/__init__.py                          |    0
+ apps/profiles/__pycache__/__init__.cpython-313.pyc |  Bin 0 -> 156 bytes
+ apps/profiles/__pycache__/__init__.cpython-314.pyc |  Bin 0 -> 170 bytes
+ apps/profiles/__pycache__/admin.cpython-313.pyc    |  Bin 0 -> 200 bytes
+ apps/profiles/__pycache__/admin.cpython-314.pyc    |  Bin 0 -> 214 bytes
+ apps/profiles/__pycache__/apps.cpython-313.pyc     |  Bin 0 -> 468 bytes
+ apps/profiles/__pycache__/apps.cpython-314.pyc     |  Bin 0 -> 479 bytes
+ apps/profiles/__pycache__/models.cpython-313.pyc   |  Bin 0 -> 197 bytes
+ apps/profiles/__pycache__/models.cpython-314.pyc   |  Bin 0 -> 211 bytes
+ apps/profiles/__pycache__/views.cpython-313.pyc    |  Bin 0 -> 1145 bytes
+ apps/profiles/__pycache__/views.cpython-314.pyc    |  Bin 0 -> 1160 bytes
+ apps/profiles/admin.py                             |    3 +
+ apps/profiles/apps.py                              |    5 +
+ apps/profiles/migrations/__init__.py               |    0
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 167 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 181 bytes
+ apps/profiles/models.py                            |    3 +
+ apps/profiles/tests.py                             |    3 +
+ apps/profiles/views.py                             |   16 +
+ apps/register/__init__.py                          |    0
+ apps/register/__pycache__/__init__.cpython-313.pyc |  Bin 0 -> 156 bytes
+ apps/register/__pycache__/__init__.cpython-314.pyc |  Bin 0 -> 170 bytes
+ apps/register/__pycache__/admin.cpython-313.pyc    |  Bin 0 -> 200 bytes
+ apps/register/__pycache__/admin.cpython-314.pyc    |  Bin 0 -> 214 bytes
+ apps/register/__pycache__/apps.cpython-313.pyc     |  Bin 0 -> 468 bytes
+ apps/register/__pycache__/apps.cpython-314.pyc     |  Bin 0 -> 479 bytes
+ apps/register/__pycache__/models.cpython-313.pyc   |  Bin 0 -> 197 bytes
+ apps/register/__pycache__/models.cpython-314.pyc   |  Bin 0 -> 211 bytes
+ apps/register/__pycache__/views.cpython-313.pyc    |  Bin 0 -> 1641 bytes
+ apps/register/__pycache__/views.cpython-314.pyc    |  Bin 0 -> 1672 bytes
+ apps/register/admin.py                             |    3 +
+ apps/register/apps.py                              |    5 +
+ apps/register/migrations/__init__.py               |    0
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 167 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 181 bytes
+ apps/register/models.py                            |    3 +
+ apps/register/tests.py                             |    3 +
+ apps/register/views.py                             |   24 +
+ apps/user_settings/__init__.py                     |    0
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 161 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 175 bytes
+ .../__pycache__/admin.cpython-313.pyc              |  Bin 0 -> 205 bytes
+ .../__pycache__/admin.cpython-314.pyc              |  Bin 0 -> 219 bytes
+ .../user_settings/__pycache__/apps.cpython-313.pyc |  Bin 0 -> 482 bytes
+ .../user_settings/__pycache__/apps.cpython-314.pyc |  Bin 0 -> 493 bytes
+ .../__pycache__/models.cpython-313.pyc             |  Bin 0 -> 202 bytes
+ .../__pycache__/models.cpython-314.pyc             |  Bin 0 -> 216 bytes
+ .../__pycache__/views.cpython-313.pyc              |  Bin 0 -> 2215 bytes
+ .../__pycache__/views.cpython-314.pyc              |  Bin 0 -> 2235 bytes
+ apps/user_settings/admin.py                        |    3 +
+ apps/user_settings/apps.py                         |    5 +
+ apps/user_settings/migrations/__init__.py          |    0
+ .../__pycache__/__init__.cpython-313.pyc           |  Bin 0 -> 172 bytes
+ .../__pycache__/__init__.cpython-314.pyc           |  Bin 0 -> 186 bytes
+ apps/user_settings/models.py                       |    3 +
+ apps/user_settings/tests.py                        |    3 +
+ apps/user_settings/views.py                        |   41 +
+ config/__pycache__/__init__.cpython-313.pyc        |  Bin 0 -> 149 bytes
+ config/__pycache__/__init__.cpython-314.pyc        |  Bin 163 -> 163 bytes
+ config/__pycache__/settings.cpython-313.pyc        |  Bin 0 -> 2946 bytes
+ config/__pycache__/settings.cpython-314.pyc        |  Bin 2912 -> 3816 bytes
+ config/__pycache__/urls.cpython-313.pyc            |  Bin 0 -> 1105 bytes
+ config/__pycache__/urls.cpython-314.pyc            |  Bin 1108 -> 740 bytes
+ config/__pycache__/wsgi.cpython-313.pyc            |  Bin 0 -> 635 bytes
+ config/__pycache__/wsgi.cpython-314.pyc            |  Bin 644 -> 644 bytes
+ config/settings.py                                 |   53 +-
+ config/urls.py                                     |   24 +-
+ manage.py                                          |    2 +-
+ requirements.txt                                   |  Bin 9678 -> 178 bytes
+ static/css/home/home.css                           |  292 ++++
+ static/css/login/login.css                         |   15 +
+ static/css/profiles/profile.css                    |   16 +
+ static/css/{style.css => register/register.css}    |    3 +-
+ static/css/user_settings/settings.css              |   10 +
+ static/js/home/home.js                             | 1416 ++++++++++++++++++++
+ static/js/login/login.js                           |   68 +
+ static/js/main.js                                  |  142 +-
+ static/js/profiles/profile.js                      |   18 +
+ static/js/register/register.js                     |   63 +
+ static/js/user_settings/settings.js                |   44 +
+ templates/home.html                                |   51 -
+ templates/home/home.html                           |  329 +++++
+ templates/{ => login}/login.html                   |   12 +-
+ templates/profiles/profile.html                    |  122 ++
+ templates/{ => register}/register.html             |    4 +-
+ templates/user_settings/settings.html              |  176 +++
+ waypoints/ffef47a0dd3c4427b94420253e2aa773.png     |  Bin 0 -> 1778252 bytes
+ 169 files changed, 3734 insertions(+), 239 deletions(-)
