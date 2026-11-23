@@ -4,7 +4,7 @@ from apps.home.views import saag_home
 from apps.login.views import account_login
 from apps.register.views import account_register
 from .views import account_logout
-from apps.profiles.views import profile_view
+from apps.profiles.views import profile_view, update_profile
 from apps.user_settings.views import user_settings
 
 urlpatterns = [
@@ -14,5 +14,6 @@ urlpatterns = [
     path('register/', account_register, name='register'),
     path('logout/', account_logout, name='logout'),
     path('profile/', profile_view, name='profile'),
+    path('profile/update/', update_profile, name='profile_update'),   # <-- new
     path('settings/', user_settings, name='user_settings'),
 ]
