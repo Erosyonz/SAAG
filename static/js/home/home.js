@@ -16,8 +16,8 @@ const URLS = {
 };
 
 const DEFAULT_MAP_CENTER = [10.3157, 123.8907];
-const MIN_STEP_METERS = 5;        // ignore GPS jitter smaller than this
-const MAX_ACCURACY_METERS = 50;   // ignore very inaccurate GPS readings
+const MIN_STEP_METERS = 1;        // draw the line after moving just 1 meter
+const MAX_ACCURACY_METERS = 100;  // accept weaker GPS readings
 const MIN_CLIMB_METERS = 3;       // count a climb only if it is at least this much
 const SHOW_START_END_LINK = true; // dashed straight line from start to end (set false to hide)
 const ROUTE_LOOP_METERS = 25;     // if a route ends this close to its start, treat it as a loop
@@ -51,11 +51,13 @@ let liveLayer = null;
 let liveTrail = null;
 let liveTrailOutline = null;
 let liveLink = null;
+let liveTail = null;
 let liveStart = null;
 let liveDot = null;
 let gpsWatcher = null;
 let hudTimer = null;
 let coordinateSaveQueue = Promise.resolve();
+let hasWarnedAboutSaving = false;
 
 // Create-route panel
 let startPoint = null;
@@ -146,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     initEvents();
     loadSavedRoutes();
+    startAutoRefresh();
 });
 
 
@@ -424,6 +427,16 @@ function beginRecordingScreen(lat, lng) {
         bubblingMouseEvents: false
     }).addTo(liveLayer);
 
+        // A short piece of line from the last saved point to where you are right now
+    liveTail = L.polyline([liveStart, liveStart], {
+        color: '#10b981',
+        weight: 6,
+        opacity: 1,
+        lineCap: 'round',
+        interactive: false
+    }).addTo(liveLayer);
+
+
     L.marker(liveStart, { icon: createStartIcon(false), zIndexOffset: 900 })
         .addTo(liveLayer)
         .bindPopup('Route starting point', { autoPan: false })
@@ -503,6 +516,12 @@ function addRouteCoordinate(lat, lng, altitude) {
 
     }).catch((error) => {
         console.error('GPS point saving failed:', error);
+
+        // Only warn once, so you are not flooded with messages while walking
+        if (!hasWarnedAboutSaving) {
+            hasWarnedAboutSaving = true;
+            showToast('Some GPS points could not be saved. Check your internet or log in again.', 'error');
+        }
     });
 }
 
@@ -524,6 +543,8 @@ function startGPSTracking() {
 
             currentPosition = newPosition;
             liveDot.setLatLng(newPosition);
+            const lastSaved = routeData.Coordinates[routeData.Coordinates.length - 1];
+            liveTail.setLatLngs([[lastSaved.Latitude, lastSaved.Longitude], newPosition]);
 
             if (followUser) map.panTo(newPosition, { animate: true });
 
@@ -796,8 +817,9 @@ function endRecordingScreen() {
 // SAVED TRAILS (from the database)
 // ==========================================
 
-async function loadSavedRoutes() {
-    showTrailCardsLoading();
+async function loadSavedRoutes({ quiet = false } = {}) {
+    // A quiet refresh does not show the grey loading boxes
+    if (!quiet) showTrailCardsLoading();
 
     try {
         const response = await fetch(URLS.savedRoutes, {
@@ -816,25 +838,40 @@ async function loadSavedRoutes() {
 
         const result = await response.json();
 
+        // Remember which trail was selected, so a refresh does not un-select it
+        const previouslyFocusedId = focusedRouteId;
+
         // Remove what was drawn before
         savedTrails.forEach((trail) => {
             map.removeLayer(trail.startMarker);
             map.removeLayer(trail.detailsLayer);
+            if (trail.previewLine) map.removeLayer(trail.previewLine);
         });
         savedTrails.clear();
         focusedRouteId = null;
 
         result.routes.forEach(displaySavedRoute);
         allRoutes = result.routes;
+
+        // Put the selected trail's details back (without moving the map)
+        if (previouslyFocusedId !== null && savedTrails.has(previouslyFocusedId)) {
+            savedTrails.get(previouslyFocusedId).detailsLayer.addTo(map);
+            focusedRouteId = previouslyFocusedId;
+        }
+
         refreshTrailCards();
+        highlightTrailCard(focusedRouteId);
         renderSearchResults();
         loadPlaceNamesForSearch();
 
     } catch (error) {
         console.error('Saved trail loading error:', error);
-        renderTrailCardsError(error.message);
+
+        // A quiet refresh fails silently, so people are not bothered by a short internet drop
+        if (!quiet) renderTrailCardsError(error.message);
     }
 }
+
 
 function createStartIcon(isMine) {
     return L.divIcon({
@@ -1412,5 +1449,24 @@ function initEvents() {
     byId('close-sidebar-btn').addEventListener('click', closeSidebar);
     document.querySelectorAll('#sidebar-header .nav-link').forEach((link) => {
         link.addEventListener('click', closeSidebar);
+    });
+}
+
+// ==========================================
+// AUTO REFRESH (shows routes other people just saved)
+// ==========================================
+
+const AUTO_REFRESH_SECONDS = 30;
+
+function startAutoRefresh() {
+    setInterval(() => {
+        // Do not disturb someone who is in the middle of a walk, or a hidden tab
+        if (isRecording || document.hidden) return;
+        loadSavedRoutes({ quiet: true });
+    }, AUTO_REFRESH_SECONDS * 1000);
+
+    // Catch up right away when you come back to this tab
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !isRecording) loadSavedRoutes({ quiet: true });
     });
 }
