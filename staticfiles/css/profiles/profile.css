@@ -1,0 +1,45 @@
+/* ==========================================================
+   profile.css - SA-AG theme: black, white, green (same as home.css)
+   Green: #10b981 (main)  #34d399 (light)  #064e3b (deep)
+   ========================================================== */
+
+body {
+    font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+    font-family: 'Bricolage Grotesque', 'DM Sans', ui-sans-serif, sans-serif;
+    letter-spacing: -0.01em;
+}
+
+/* Visible keyboard focus everywhere */
+:focus-visible {
+    outline: 2px solid #34d399;
+    outline-offset: 2px;
+}
+
+/* Sidebar */
+.nav-link.active {
+    background: rgba(16, 185, 129, 0.16);
+    color: #34d399;
+}
+
+/* Green contour pattern: banner and cards without a photo */
+.trail-card-fallback {
+    background:
+        repeating-radial-gradient(circle at 30% 120%,
+            rgba(16, 185, 129, 0.0) 0 14px,
+            rgba(16, 185, 129, 0.28) 14px 16px),
+        linear-gradient(160deg, #064e3b 0%, #000 75%);
+}
+
+.trail-card:hover,
+.trail-card:focus-visible {
+    border-color: #34d399;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition-duration: 0.01ms !important;
+    }
+}

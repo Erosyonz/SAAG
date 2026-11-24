@@ -24,8 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Explicitly load .env from the project root directory
 dotenv_path = BASE_DIR / '.env'
-dotenv.load_dotenv(dotenv_path)
+#LAPTOP DATABASE CONNECTION
+# dotenv.load_dotenv(dotenv_path)
 
+#COMPUTER DATABASE CONNECTION
+dotenv.load_dotenv(dotenv_path, override=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -99,11 +102,21 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Fallback or parse safely
+#LAPTOP DATABASE CONNECTION
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default=os.environ.get('DATABASE_URL'),
+#         conn_max_age=600,
+#         ssl_require=False  # Let the connection string manage sslmode via ?sslmode=require
+#     )
+# }
+
+# LAB DATABASE USE
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
-        ssl_require=False  # Let the connection string manage sslmode via ?sslmode=require
+        ssl_require=False,
     )
 }
 
@@ -167,3 +180,8 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'

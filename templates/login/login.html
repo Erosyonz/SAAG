@@ -1,110 +1,97 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trailhead - Sign In</title>
-    
-    <!-- Third-Party CDNs -->
+    <title>SA-AG - Sign in</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Static Local Utilities -->
-    <script src="{% static 'js/login/login.js' %}"></script>
-    <link rel="stylesheet" href="{% static 'css/login/login.css' %}">
+    <link rel="stylesheet" href="{% static 'css/auth/auth.css' %}">
 </head>
-<body class="bg-trail-hero min-h-screen flex items-center justify-center p-4 sm:p-6 antialiased text-slate-800">
 
-    <main class="w-full max-w-2xl">
-        <div class="w-full glass-card rounded-3xl p-8 sm:p-10 transition-all">
-            
-            <!-- Header Section -->
-            <div class="text-center mb-8">
-                <div class="w-12 h-12 rounded-2xl bg-forest-800 text-white flex items-center justify-center mx-auto mb-4 shadow-md">
-                    <i data-lucide="compass" class="w-6 h-6"></i>
-                </div>
-                <h1 class="text-2xl font-bold text-forest-900 tracking-tight">SAAG</h1>
-                <p class="text-sm text-slate-500 mt-1">Hello, Mag-Balaktasay</p>
+<body class="bg-black text-white antialiased">
+
+    <main class="min-h-screen grid lg:grid-cols-2">
+
+        <!-- Brand side (desktop only) -->
+        <aside class="trail-card-fallback hidden lg:flex flex-col justify-between p-12 border-r border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-black grid place-items-center font-display font-extrabold text-sm">SA</div>
+                <span class="font-display font-bold text-lg">SAAG</span>
             </div>
+            <div class="max-w-md">
+                <h2 class="font-display text-4xl font-bold leading-tight">Walk it. Record it. Share it.</h2>
+                <p class="mt-4 text-zinc-300 leading-relaxed">Follow trails other hikers recorded, or map your own and let others walk the same line.</p>
+            </div>
+            <p class="text-xs text-zinc-400">&copy; SAAG</p>
+        </aside>
 
-            <!-- Dynamic Reusable Alert Utility -->
-            {% include 'includes/alerts.html' %}
+        <!-- Form side -->
+        <section class="flex items-center justify-center px-6 py-10 sm:px-12">
+            <div class="w-full max-w-md">
 
-            <!-- Login Form -->
-            <form method="POST" action="{% url 'login' %}" class="space-y-5">
-                {% csrf_token %}
-                
-                <!-- Username Input -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">USERNAME</label>
-                    <div class="relative">
-                        <i data-lucide="user" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input 
-                            type="text" 
-                            name="username" 
-                            required 
-                            placeholder="Erosyonz" 
-                            class="input-trail w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
-                        >
+                <div class="lg:hidden w-10 h-10 mb-6 rounded-xl bg-emerald-500 text-black grid place-items-center font-display font-extrabold text-sm">SA</div>
+
+                <h1 class="font-display text-3xl font-bold">Welcome back</h1>
+                <p class="mt-1 mb-8 text-sm text-zinc-400">Hello, Mag-Balaktasay</p>
+
+                {% include 'includes/alerts.html' %}
+                <div id="notice-area" aria-live="polite"></div>
+
+                <form method="POST" action="{% url 'login' %}" class="space-y-5">
+                    {% csrf_token %}
+
+                    <div>
+                        <label for="login-username" class="auth-label">Username</label>
+                        <input id="login-username" type="text" name="username" required autocomplete="username"
+                            placeholder="Your username" class="auth-input">
                     </div>
-                </div>
 
-                <!-- Password Input -->
-                <div>
-                    <div class="flex justify-between items-center mb-1.5">
-                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Password</label>
-                        <a href="#" onclick="handleForgotPassword(event)" class="text-xs text-terracotta-600 hover:text-terracotta-500 font-medium transition">Forgot Password</a>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <label for="login-pass" class="auth-label">Password</label>
+                            <button id="forgot-password-btn" type="button"
+                                class="mb-2 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                                Forgot password?
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <input id="login-pass" type="password" name="password" required autocomplete="current-password"
+                                placeholder="Your password" class="auth-input with-eye">
+                            <button type="button" data-toggle-password="login-pass" aria-label="Show password"
+                                class="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors">
+                                <svg class="eye-open size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                <svg class="eye-closed hidden size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                            </button>
+                        </div>
                     </div>
-                    <div class="relative">
-                        <i data-lucide="lock" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input 
-                            type="password" 
-                            id="login-pass" 
-                            name="password" 
-                            required 
-                            placeholder="••••••••" 
-                            class="input-trail w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white text-slate-800 placeholder-slate-400"
-                        >
-                        <button type="button" onclick="togglePassword('login-pass', 'pass-eye')" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
-                            <i id="pass-eye" data-lucide="eye" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Remember Me Checkbox -->
-                <div class="flex items-center justify-between pt-1">
-                    <label class="flex items-center gap-2 cursor-pointer text-slate-600 text-xs select-none">
-                        <input type="checkbox" name="remember_me" class="w-4 h-4 rounded text-forest-800 focus:ring-forest-800 border-slate-300">
-                        <span>Remember my session</span>
+                    <label class="flex items-center gap-2 cursor-pointer text-sm text-zinc-300 select-none">
+                        <input type="checkbox" name="remember_me" class="size-4 rounded accent-emerald-500">
+                        <span>Keep me signed in</span>
                     </label>
-                </div>
 
-                <!-- Submit Button -->
-                <button 
-                    type="submit" 
-                    class="w-full py-3.5 px-4 bg-forest-800 hover:bg-forest-900 active:scale-[0.99] text-white rounded-xl font-semibold text-sm shadow-lg shadow-forest-950/20 transition-all flex items-center justify-center gap-2 group mt-2"
-                >
-                    <span>Start Exploring</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
-                </button>
-            </form>
+                    <button type="submit"
+                        class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-black rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2">
+                        <span>Start exploring</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                    </button>
+                </form>
 
-            <!-- Footer Link -->
-            <div class="mt-8 pt-6 border-t border-slate-100 text-center">
-                <p class="text-xs text-slate-500">
-                    Don't have an account? 
-                    <a href="{% url 'register' %}" class="text-terracotta-600 hover:underline font-semibold ml-1">Sign up</a>
+                <p class="mt-8 pt-6 border-t border-white/10 text-sm text-zinc-400 text-center">
+                    Don't have an account?
+                    <a href="{% url 'register' %}" class="ml-1 font-semibold text-emerald-400 hover:text-emerald-300">Sign up</a>
                 </p>
             </div>
-
-        </div>
+        </section>
     </main>
 
-    <!-- Initialize Lucide Icons -->
-    <script>
-        lucide.createIcons();
-    </script>
+    <script src="{% static 'js/auth/auth.js' %}"></script>
 </body>
 </html>

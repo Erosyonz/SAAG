@@ -1,0 +1,15 @@
+/* Custom active state for sidebar links */
+.nav-link.active {
+  background-color: #1f2937; /* Tailwind gray-800 */
+  color: #ffffff;
+  border-left: 4px solid #3b82f6; /* Tailwind blue-500 indicator bar */
+}
+
+/* Hide default scrollbars for smooth dashboard layout */
+aside::-webkit-scrollbar {
+  display: none;
+}
+aside {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
