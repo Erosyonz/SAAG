@@ -1,0 +1,73 @@
+/* ==========================================================
+   auth.css - login + register, SA-AG theme: black, white, green
+   Green: #10b981 (main)  #34d399 (light)  #064e3b (deep)
+   ========================================================== */
+
+body {
+    font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+    font-family: 'Bricolage Grotesque', 'DM Sans', ui-sans-serif, sans-serif;
+    letter-spacing: -0.01em;
+}
+
+:focus-visible {
+    outline: 2px solid #34d399;
+    outline-offset: 2px;
+}
+
+/* Green contour pattern (same as the trail cards and profile banner) */
+.trail-card-fallback {
+    background:
+        repeating-radial-gradient(circle at 30% 120%,
+            rgba(16, 185, 129, 0.0) 0 14px,
+            rgba(16, 185, 129, 0.28) 14px 16px),
+        linear-gradient(160deg, #064e3b 0%, #000 75%);
+}
+
+/* ---------- Form fields ---------- */
+.auth-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: #18181b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    color: #fff;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-input::placeholder {
+    color: #71717a;
+}
+
+.auth-input:focus {
+    border-color: #34d399;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
+.auth-input.with-eye {
+    padding-right: 2.75rem;
+}
+
+/* Keep browser autofill dark instead of white */
+.auth-input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #18181b inset;
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition-duration: 0.01ms !important;
+    }
+}

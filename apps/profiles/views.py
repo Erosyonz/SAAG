@@ -22,6 +22,32 @@ BADGE_CLASSES = {
 }
 
 
+
+# ==========================================
+# SUBQUERY FUNCTION
+# ==========================================
+
+
+from django.db.models import Subquery
+
+def get_trails_to_discover(user):
+    # INNER query: the RouteIDs this user already finished
+    finished_route_ids = (
+        UserCompletedRoute.objects
+        .filter(account=user)
+        .values('route_id')
+    )
+
+    # OUTER query: other hikers' routes whose ID is NOT in the inner list
+    return (
+        Route.objects
+        .exclude(account=user)
+        .exclude(route_id__in=Subquery(finished_route_ids))
+        .select_related('account')
+        .prefetch_related('waypoints')
+        .order_by('-created_at')
+    )
+
 # ==========================================
 # HELPERS
 # ==========================================
@@ -66,6 +92,7 @@ def build_route_card(route, date, rating=None):
         'cover_image': cover_image,
         'date': date,
         'rating': rating,
+        'creator': str(route.account).strip() or route.account.username,
     }
 
 
@@ -82,23 +109,33 @@ def profile_view(request):
     created = (
         Route.objects
         .filter(account=user)
+        .select_related('account')
         .prefetch_related('waypoints')
         .order_by('-created_at')
     )
+
+# ==========================================
+# JOIN FUNCTION
+# ==========================================
+
 
     # Routes this user finished (can include routes made by other people)
     completions = (
         UserCompletedRoute.objects
         .filter(account=user)
-        .select_related('route')
+        .select_related('route', 'route__account')   # JOIN: completion + route + creator
         .prefetch_related('route__waypoints')
         .order_by('-completed_at')
     )
-
     created_routes = [build_route_card(route, route.created_at) for route in created]
     completed_routes = [
         build_route_card(item.route, item.completed_at, item.rating)
         for item in completions
+    ]
+
+    discover_routes = [
+        build_route_card(route, route.created_at)
+        for route in get_trails_to_discover(user)[:6]
     ]
 
     return render(request, 'profiles/profile.html', {
@@ -107,6 +144,7 @@ def profile_view(request):
         'created_count': len(created_routes),
         'completed_count': len(completed_routes),
         'total_km': sum(card['distance'] for card in created_routes),
+        'discover_routes': discover_routes,
     })
 
 

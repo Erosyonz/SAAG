@@ -165,15 +165,15 @@ function initMap() {
 
     map = L.map(container, {
         zoomControl: false,
-        attributionControl: false
+        attributionControl: true
     }).setView(DEFAULT_MAP_CENTER, 13);
 
-    L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 19 }
-    ).addTo(map);
+    map.attributionControl.setPrefix(false);
 
     L.control.zoom({ position: 'topleft' }).addTo(map);
+
+    addMapStyleSwitch();
+    setMapStyle(getSavedMapStyle());
 
     // Clicking empty map just un-selects the trail (it no longer opens the form)
     map.on('click', () => {
@@ -186,6 +186,80 @@ function initMap() {
     });
 
     window.addEventListener('resize', () => map.invalidateSize());
+}
+
+
+// ==========================================
+// MAP STYLE (satellite or OpenStreetMap)
+// ==========================================
+
+const MAP_STYLES = {
+    satellite: {
+        label: 'Satellite view',
+        switchText: 'Street map',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        options: { maxZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }
+    },
+    street: {
+        label: 'OpenStreetMap',
+        switchText: 'Satellite',
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: {
+            maxZoom: 19,
+            referrerPolicy: 'strict-origin-when-cross-origin',   // OSM blocks tile requests that carry no referrer
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+        }
+    }
+};
+
+let baseLayer = null;
+let currentMapStyle = 'satellite';
+
+function getSavedMapStyle() {
+    try {
+        const saved = localStorage.getItem('saag-map-style');
+        if (MAP_STYLES[saved]) return saved;
+    } catch (error) { /* storage blocked */ }
+    return 'satellite';
+}
+
+function setMapStyle(styleName) {
+    const style = MAP_STYLES[styleName];
+    if (!style) return;
+
+    if (baseLayer) map.removeLayer(baseLayer);
+    baseLayer = L.tileLayer(style.url, style.options).addTo(map);
+    baseLayer.bringToBack();
+    currentMapStyle = styleName;
+
+    const badge = byId('map-style-label');
+    if (badge) badge.textContent = style.label;
+
+    const button = byId('map-style-btn');
+    if (button) button.textContent = style.switchText;
+
+    try { localStorage.setItem('saag-map-style', styleName); } catch (error) { /* storage blocked */ }
+}
+
+function addMapStyleSwitch() {
+    const control = L.control({ position: 'topleft' });
+
+    control.onAdd = () => {
+        const box = L.DomUtil.create('div', 'leaflet-bar map-style-switch');
+        const button = L.DomUtil.create('button', '', box);
+        button.id = 'map-style-btn';
+        button.type = 'button';
+        button.title = 'Switch map style';
+        button.textContent = MAP_STYLES.satellite.switchText;
+
+        L.DomEvent.disableClickPropagation(box);
+        button.addEventListener('click', () => {
+            setMapStyle(currentMapStyle === 'satellite' ? 'street' : 'satellite');
+        });
+        return box;
+    };
+
+    control.addTo(map);
 }
 
 
@@ -1413,22 +1487,421 @@ function initSearch() {
 }
 
 // ==========================================
-// FOLLOW A ROUTE (like walking directions)
+// FOLLOW A ROUTE (turn-by-turn, like Google Maps)
 // ==========================================
+//
+// Part 1: from where you stand, an OpenStreetMap walking route takes you to the
+//         start of the trail (blue line, with street directions).
+// Part 2: at the start, the saved trail takes over (green line), with turn and
+//         waypoint reminders, distance left, arrival time and spoken directions.
 
-const FOLLOW_START_METERS = 30;       // this close to the start = you are on the trail
-const FOLLOW_ARRIVE_METERS = 25;      // this close to the end = you have arrived
-const FOLLOW_OFF_ROUTE_METERS = 40;   // farther than this from the line = off the route
-const FOLLOW_LOOK_AHEAD_POINTS = 40;  // how many points ahead we search for your position
+const FOLLOW_START_METERS = 30;               // this close to the start = you are on the trail
+const FOLLOW_ARRIVE_METERS = 25;              // this close to the end = you have arrived
+const FOLLOW_OFF_ROUTE_METERS = 40;           // farther than this from the green line = off the trail
+const FOLLOW_ROAD_OFF_ROUTE_METERS = 60;      // farther than this from the blue line = find a new walking route
+const FOLLOW_LOOK_AHEAD_METERS = 120;         // how far ahead on the trail we look for your position
+const FOLLOW_ROAD_LOOK_AHEAD_METERS = 300;    // same, for the street route
+const FOLLOW_REROUTE_SECONDS = 15;            // wait at least this long between route lookups
+const FOLLOW_PREVIEW_METERS = 150;            // the next turn farther than this shows as "Continue"
+const FOLLOW_WALKING_SPEED = 1.2;             // meters per second, used when we have no better guess
 
-let followTrail = null;        // { name, points, distanceFromStart, totalMeters }
+const TURN_LOOK_METERS = 15;                  // compare the direction 15 m before and 15 m after a point
+const TURN_MIN_ANGLE = 40;                    // smaller bends than this are not called out
+const TURN_MERGE_METERS = 30;                 // bends closer together than this count as one turn
+
+const SPEAK_FAR_METERS = 60;                  // "In 60 meters, turn left"
+const SPEAK_NEAR_METERS = 15;                 // "Turn left now"
+
+// Free walking directions from OpenStreetMap data (FOSSGIS server).
+// For a busy production site, host your own OSRM or use an API key service.
+const WALKING_ROUTER_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
+
+const TURN_WORDS = {
+    'uturn':        { arrow: '\u21A9', text: 'Make a U-turn' },
+    'sharp right':  { arrow: '\u2198', text: 'Turn sharp right' },
+    'right':        { arrow: '\u21B1', text: 'Turn right' },
+    'slight right': { arrow: '\u2197', text: 'Bear right' },
+    'straight':     { arrow: '\u2191', text: 'Continue straight' },
+    'slight left':  { arrow: '\u2196', text: 'Bear left' },
+    'left':         { arrow: '\u21B0', text: 'Turn left' },
+    'sharp left':   { arrow: '\u2199', text: 'Turn sharp left' }
+};
+
+let followTrail = null;         // { name, points, totalMeters, guide }
+let followGuide = null;         // the path we are following right now (street route or trail)
+let followGuideCounter = 0;
 let followWatcher = null;
 let followLayer = null;
-let followLines = {};          // toStart, done, left, leftOutline
+let followLines = {};           // roadOutline, road, backToRoute, done, left, leftOutline
 let followDot = null;
-let followProgress = 0;        // the furthest route point you have reached
-let followStage = 'to-start';  // 'to-start', 'on-trail' or 'arrived'
+let followProgress = 0;         // meters walked along the current guide
+let followStage = 'to-start';   // 'to-start', 'on-trail' or 'arrived'
 let followCameraOn = true;
+let followLastPosition = null;
+let followHeadingAnchor = null;
+let followHeadingShown = 0;
+let followRerouting = false;
+let followLastRerouteAt = 0;
+let followSpoken = new Set();
+let followStepRows = [];
+let followWakeLock = null;
+let followVoiceOn = true;
+
+try {
+    followVoiceOn = localStorage.getItem('saag-follow-voice') !== 'off';
+} catch (error) { /* storage blocked */ }
+
+
+// ---------- Small helpers ----------
+
+function getBearing(lat1, lon1, lat2, lon2) {
+    const toRadians = (value) => value * Math.PI / 180;
+    const y = Math.sin(toRadians(lon2 - lon1)) * Math.cos(toRadians(lat2));
+    const x = Math.cos(toRadians(lat1)) * Math.sin(toRadians(lat2)) -
+        Math.sin(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.cos(toRadians(lon2 - lon1));
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function formatClock(secondsFromNow) {
+    return new Date(Date.now() + secondsFromNow * 1000)
+        .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function lowerFirst(text) {
+    return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function speak(text) {
+    if (!followVoiceOn || !('speechSynthesis' in window)) return;
+
+    try {
+        window.speechSynthesis.cancel();
+        const voice = new SpeechSynthesisUtterance(text);
+        voice.lang = 'en-US';
+        window.speechSynthesis.speak(voice);
+    } catch (error) { /* speech not available */ }
+}
+
+function speakDistance(meters) {
+    if (meters >= 1000) return `${(meters / 1000).toFixed(1)} kilometers`;
+    return `${Math.max(10, Math.round(meters / 10) * 10)} meters`;
+}
+
+async function keepScreenOn() {
+    try {
+        if ('wakeLock' in navigator && !followWakeLock) {
+            followWakeLock = await navigator.wakeLock.request('screen');
+            followWakeLock.addEventListener('release', () => { followWakeLock = null; });
+        }
+    } catch (error) { /* not allowed, that is fine */ }
+}
+
+function allowScreenOff() {
+    if (followWakeLock) {
+        followWakeLock.release().catch(() => {});
+        followWakeLock = null;
+    }
+}
+
+// Wake lock is dropped when the tab is hidden, so ask for it again when you come back
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && followTrail && followStage !== 'arrived') keepScreenOn();
+});
+
+
+// ---------- Building a "guide": a path plus a list of steps ----------
+
+function measurePath(path) {
+    const distanceAlong = [0];
+    for (let i = 1; i < path.length; i++) {
+        distanceAlong.push(
+            distanceAlong[i - 1] +
+            getDistance(path[i - 1][0], path[i - 1][1], path[i][0], path[i][1])
+        );
+    }
+    return distanceAlong;
+}
+
+// kind: 'walking' (street route), 'straight' (backup line) or 'trail'
+function buildGuide(kind, path, steps, secondsPerMeter) {
+    const distanceAlong = measurePath(path);
+
+    steps.forEach((step) => { step.meters = distanceAlong[step.pathIndex]; });
+    steps.sort((a, b) => a.meters - b.meters);
+
+    followGuideCounter += 1;
+
+    return {
+        id: followGuideCounter,
+        kind,
+        path,
+        distanceAlong,
+        total: distanceAlong[distanceAlong.length - 1],
+        steps,
+        secondsPerMeter
+    };
+}
+
+function angleToModifier(angle) {
+    const isRight = angle > 0;
+    const size = Math.abs(angle);
+
+    if (size >= 150) return 'uturn';
+    if (size >= 110) return isRight ? 'sharp right' : 'sharp left';
+    if (size >= 65) return isRight ? 'right' : 'left';
+    return isRight ? 'slight right' : 'slight left';
+}
+
+// Finds the bends in your recorded trail and turns them into "Turn left" style steps
+function makeTrailSteps(points, waypoints) {
+    const distanceAlong = measurePath(points);
+    const lastIndex = points.length - 1;
+    const candidates = [];
+
+    let behind = 0;
+    let ahead = 0;
+
+    for (let i = 1; i < lastIndex; i++) {
+        const here = distanceAlong[i];
+
+        while (behind + 1 < i && here - distanceAlong[behind + 1] >= TURN_LOOK_METERS) behind++;
+        if (ahead < i) ahead = i;
+        while (ahead < lastIndex && distanceAlong[ahead] - here < TURN_LOOK_METERS) ahead++;
+
+        if (here - distanceAlong[behind] < TURN_LOOK_METERS) continue;
+        if (distanceAlong[ahead] - here < TURN_LOOK_METERS) continue;
+
+        const comingIn = getBearing(points[behind][0], points[behind][1], points[i][0], points[i][1]);
+        const goingOut = getBearing(points[i][0], points[i][1], points[ahead][0], points[ahead][1]);
+        const angle = ((goingOut - comingIn + 540) % 360) - 180;
+
+        if (Math.abs(angle) >= TURN_MIN_ANGLE) candidates.push({ index: i, angle });
+    }
+
+    const steps = [];
+    let group = [];
+
+    const finishGroup = () => {
+        if (group.length === 0) return;
+
+        const strongest = group.reduce((a, b) => Math.abs(b.angle) > Math.abs(a.angle) ? b : a);
+        const words = TURN_WORDS[angleToModifier(strongest.angle)];
+
+        steps.push({ kind: 'turn', pathIndex: strongest.index, arrow: words.arrow, text: words.text });
+        group = [];
+    };
+
+    candidates.forEach((candidate) => {
+        const previous = group[group.length - 1];
+        if (previous && distanceAlong[candidate.index] - distanceAlong[previous.index] > TURN_MERGE_METERS) {
+            finishGroup();
+        }
+        group.push(candidate);
+    });
+    finishGroup();
+
+    // Waypoints you saved on this trail become steps too
+    (waypoints || []).forEach((waypoint) => {
+        const lat = Number(waypoint.latitude);
+        const lng = Number(waypoint.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        let bestIndex = 0;
+        let bestMeters = Infinity;
+
+        points.forEach((point, index) => {
+            const meters = getDistance(lat, lng, point[0], point[1]);
+            if (meters < bestMeters) {
+                bestMeters = meters;
+                bestIndex = index;
+            }
+        });
+
+        if (bestMeters > 50) return;   // too far from the line to be "on the way"
+
+        steps.push({
+            kind: 'waypoint',
+            pathIndex: bestIndex,
+            arrow: '\u2605',
+            text: `Waypoint: ${waypoint.name || 'Unnamed spot'}`
+        });
+    });
+
+    steps.push({
+        kind: 'arrive',
+        pathIndex: lastIndex,
+        arrow: '\uD83C\uDFC1',
+        text: 'Arrive at the end of the route'
+    });
+
+    return steps;
+}
+
+// Uses how long the trail took when it was recorded, so the time left feels realistic
+function trailSecondsPerMeter(route, totalMeters) {
+    const recordedSeconds = Number(route.estimated_time) * 60;
+
+    if (recordedSeconds > 0 && totalMeters > 0) {
+        return Math.min(Math.max(recordedSeconds / totalMeters, 0.4), 3.5);
+    }
+    return 1 / FOLLOW_WALKING_SPEED;
+}
+
+function buildTrailGuide(trail) {
+    const steps = makeTrailSteps(trail.points, trail.route.waypoints);
+    const totalMeters = measurePath(trail.points).pop();
+
+    return buildGuide('trail', trail.points, steps, trailSecondsPerMeter(trail.route, totalMeters));
+}
+
+function buildStraightGuide(from, to) {
+    return buildGuide('straight', [from, to], [{
+        kind: 'arrive',
+        pathIndex: 1,
+        arrow: '\uD83D\uDCCD',
+        text: 'Walk straight to the start of the route'
+    }], 1 / FOLLOW_WALKING_SPEED);
+}
+
+function describeRoadStep(step) {
+    const { type, modifier, exit } = step.maneuver;
+    const onRoad = step.name ? ` on ${step.name}` : '';
+    const ontoRoad = step.name ? ` onto ${step.name}` : '';
+
+    if (type === 'roundabout' || type === 'rotary') {
+        return {
+            kind: 'turn',
+            arrow: '\u21BB',
+            text: exit ? `At the roundabout, take exit ${exit}${onRoad}` : `Go around the roundabout${onRoad}`
+        };
+    }
+
+    const words = TURN_WORDS[modifier] || TURN_WORDS.straight;
+    const isStraight = !modifier || modifier === 'straight';
+
+    return {
+        kind: 'turn',
+        arrow: words.arrow,
+        text: isStraight ? `${words.text}${onRoad}` : `${words.text}${ontoRoad}`
+    };
+}
+
+// Asks OpenStreetMap for a walking route. Returns null if it cannot be found.
+async function fetchWalkingGuide(from, to) {
+    const url = `${WALKING_ROUTER_URL}${from[1]},${from[0]};${to[1]},${to[0]}` +
+        '?overview=full&geometries=geojson&steps=true';
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const route = data.routes && data.routes[0];
+
+        if (!response.ok || data.code !== 'Ok' || !route) return null;
+
+        const path = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        if (path.length < 2) return null;
+
+        // The street route ends at the nearest street. Join it to the real trail start.
+        const gap = getDistance(path[path.length - 1][0], path[path.length - 1][1], to[0], to[1]);
+        if (gap > 3) path.push(to);
+
+        const steps = [];
+        let searchFrom = 0;
+
+        route.legs[0].steps.forEach((step) => {
+            const type = step.maneuver.type;
+            const [lng, lat] = step.maneuver.location;
+
+            let bestIndex = searchFrom;
+            let bestMeters = Infinity;
+
+            for (let i = searchFrom; i < path.length; i++) {
+                const meters = getDistance(lat, lng, path[i][0], path[i][1]);
+                if (meters < bestMeters) {
+                    bestMeters = meters;
+                    bestIndex = i;
+                }
+            }
+            searchFrom = bestIndex;
+
+            // "depart" and "arrive" are replaced by our own first and last messages
+            if (type === 'depart' || type === 'arrive') return;
+
+            steps.push({ pathIndex: bestIndex, ...describeRoadStep(step) });
+        });
+
+        steps.push({
+            kind: 'arrive',
+            pathIndex: path.length - 1,
+            arrow: '\uD83D\uDCCD',
+            text: 'Arrive at the start of the route'
+        });
+
+        const secondsPerMeter = route.distance > 0
+            ? route.duration / route.distance
+            : 1 / FOLLOW_WALKING_SPEED;
+
+        return buildGuide('walking', path, steps, secondsPerMeter);
+
+    } catch (error) {
+        console.warn('Walking route lookup failed:', error);
+        return null;
+    }
+}
+
+
+// ---------- Where am I on the path? ----------
+
+// Closest point on the line between two points (flat-map maths is fine over short distances)
+function projectOnSegment(here, a, b) {
+    const metersPerDegreeLat = 111320;
+    const metersPerDegreeLng = 111320 * Math.cos(here[0] * Math.PI / 180);
+
+    const ax = (a[1] - here[1]) * metersPerDegreeLng;
+    const ay = (a[0] - here[0]) * metersPerDegreeLat;
+    const bx = (b[1] - here[1]) * metersPerDegreeLng;
+    const by = (b[0] - here[0]) * metersPerDegreeLat;
+
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lengthSquared = dx * dx + dy * dy;
+
+    let t = lengthSquared === 0 ? 0 : -(ax * dx + ay * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+
+    return {
+        t,
+        meters: Math.hypot(ax + t * dx, ay + t * dy),
+        point: [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]
+    };
+}
+
+// Finds the closest spot on the guide, looking only between two distances along it
+function projectOnPath(guide, here, fromMeters, toMeters) {
+    const { path, distanceAlong } = guide;
+    let best = { meters: Infinity, along: Math.max(0, fromMeters), index: 0, point: path[0] };
+
+    for (let i = 0; i < path.length - 1; i++) {
+        if (distanceAlong[i + 1] < fromMeters) continue;
+        if (distanceAlong[i] > toMeters) break;
+
+        const spot = projectOnSegment(here, path[i], path[i + 1]);
+
+        if (spot.meters < best.meters) {
+            best = {
+                meters: spot.meters,
+                along: distanceAlong[i] + spot.t * (distanceAlong[i + 1] - distanceAlong[i]),
+                index: i,
+                point: spot.point
+            };
+        }
+    }
+
+    return best;
+}
+
+
+// ---------- Buttons and panel ----------
 
 function showFollowButton(routeId) {
     let button = byId('follow-route-btn');
@@ -1460,39 +1933,153 @@ function showFollowPanel(routeName) {
         panel = document.createElement('div');
         panel.id = 'follow-panel';
         panel.className =
-            'absolute top-16 right-4 left-4 sm:left-auto sm:w-80 z-20 rounded-2xl bg-black/95 ' +
+            'absolute top-16 right-4 left-4 sm:left-auto sm:w-96 z-20 rounded-2xl bg-black/95 ' +
             'border border-emerald-400/50 p-4 shadow-2xl text-white';
         panel.innerHTML = `
-            <p id="follow-title" class="font-display font-bold text-base truncate"></p>
-            <p id="follow-message" class="text-sm text-zinc-300 mt-1"></p>
-            <div class="flex gap-2 mt-3">
+            <div class="flex items-start gap-3">
+                <div id="follow-arrow"
+                    class="size-14 shrink-0 grid place-items-center rounded-xl bg-emerald-500 text-black text-3xl font-bold">&#8593;</div>
+                <div class="min-w-0 flex-1">
+                    <p id="follow-stage" class="text-[11px] uppercase tracking-wide font-bold text-emerald-400"></p>
+                    <p id="follow-instruction" class="font-display font-bold text-lg leading-snug"></p>
+                    <p id="follow-detail" class="text-sm text-zinc-300"></p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+                <div class="rounded-lg bg-white/10 py-2">
+                    <strong id="follow-left" class="block font-display text-base leading-tight">-</strong>
+                    <span class="text-[11px] text-zinc-400">left</span>
+                </div>
+                <div class="rounded-lg bg-white/10 py-2">
+                    <strong id="follow-time" class="block font-display text-base leading-tight">-</strong>
+                    <span class="text-[11px] text-zinc-400">time</span>
+                </div>
+                <div class="rounded-lg bg-white/10 py-2">
+                    <strong id="follow-arrival" class="block font-display text-base leading-tight">-</strong>
+                    <span class="text-[11px] text-zinc-400">arrive</span>
+                </div>
+            </div>
+
+            <p id="follow-title" class="text-xs text-zinc-500 mt-3 truncate"></p>
+
+            <ul id="follow-steps" class="hidden mt-2 max-h-48 overflow-y-auto space-y-1"></ul>
+
+            <div class="grid grid-cols-4 gap-2 mt-3">
+                <button id="follow-steps-btn" type="button"
+                    class="py-2 rounded-lg border border-white/20 text-xs font-semibold hover:bg-white hover:text-black transition-colors">
+                    Steps
+                </button>
+                <button id="follow-voice-btn" type="button"
+                    class="py-2 rounded-lg border border-white/20 text-xs font-semibold hover:bg-white hover:text-black transition-colors">
+                    Voice on
+                </button>
                 <button id="follow-center-btn" type="button"
-                    class="flex-1 py-2 rounded-lg border border-white/20 text-sm font-semibold hover:bg-white hover:text-black transition-colors">
-                    Center on me
+                    class="py-2 rounded-lg border border-white/20 text-xs font-semibold hover:bg-white hover:text-black transition-colors">
+                    Center
                 </button>
                 <button id="follow-stop-btn" type="button"
-                    class="flex-1 py-2 rounded-lg bg-white text-black text-sm font-bold hover:bg-zinc-200 transition-colors">
+                    class="py-2 rounded-lg bg-white text-black text-xs font-bold hover:bg-zinc-200 transition-colors">
                     Stop
                 </button>
             </div>`;
         byId('view-home').appendChild(panel);
 
+        byId('follow-steps-btn').addEventListener('click', () => {
+            byId('follow-steps').classList.toggle('hidden');
+        });
+
+        byId('follow-voice-btn').addEventListener('click', () => {
+            followVoiceOn = !followVoiceOn;
+            try { localStorage.setItem('saag-follow-voice', followVoiceOn ? 'on' : 'off'); } catch (error) { /* storage blocked */ }
+            if (!followVoiceOn && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+            updateVoiceButton();
+        });
+
         byId('follow-center-btn').addEventListener('click', () => {
             followCameraOn = true;
             if (followDot) map.panTo(followDot.getLatLng(), { animate: true });
         });
+
         byId('follow-stop-btn').addEventListener('click', stopFollowRoute);
     }
 
     byId('follow-title').textContent = routeName;
-    byId('follow-message').textContent = 'Finding your location...';
+    byId('follow-steps').classList.add('hidden');
+    byId('follow-steps').innerHTML = '';
+
+    setFollowBanner({
+        stage: 'Getting ready',
+        arrow: '\u23F3',
+        text: 'Finding your location...'
+    });
+
+    updateVoiceButton();
     panel.classList.remove('hidden');
 }
 
-function setFollowMessage(text) {
-    const message = byId('follow-message');
-    if (message) message.textContent = text;
+function updateVoiceButton() {
+    const button = byId('follow-voice-btn');
+    if (button) button.textContent = followVoiceOn ? 'Voice on' : 'Voice off';
 }
+
+function setFollowBanner(info) {
+    byId('follow-stage').textContent = info.stage || '';
+    byId('follow-arrow').textContent = info.arrow || '\u2191';
+    byId('follow-instruction').textContent = info.text || '';
+
+    const detail = info.detail !== undefined
+        ? info.detail
+        : (info.metersToNext !== undefined ? `in ${formatDistance(info.metersToNext)}` : '');
+    byId('follow-detail').textContent = detail;
+
+    const hasLeft = info.metersLeft !== undefined;
+    const hasTime = info.secondsLeft !== undefined && info.secondsLeft > 0;
+
+    byId('follow-left').textContent = hasLeft ? formatDistance(info.metersLeft) : '-';
+    byId('follow-time').textContent = hasTime ? formatMinutes(Math.max(1, info.secondsLeft / 60)) : '-';
+    byId('follow-arrival').textContent = hasTime ? formatClock(info.secondsLeft) : '-';
+}
+
+function renderStepsList(guide) {
+    const list = byId('follow-steps');
+    if (!list) return;
+
+    list.innerHTML = '';
+    followStepRows = [];
+
+    guide.steps.forEach((step) => {
+        const row = document.createElement('li');
+        row.className = 'flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-zinc-300';
+
+        const arrow = document.createElement('span');
+        arrow.className = 'w-6 text-center text-lg text-emerald-400 shrink-0';
+        arrow.textContent = step.arrow;
+
+        const text = document.createElement('span');
+        text.className = 'flex-1 min-w-0';
+        text.textContent = step.text;
+
+        const distance = document.createElement('span');
+        distance.className = 'text-xs text-zinc-500 shrink-0';
+        distance.textContent = formatDistance(step.meters);
+
+        row.append(arrow, text, distance);
+        list.appendChild(row);
+        followStepRows.push(row);
+    });
+}
+
+function markNextStep(index) {
+    followStepRows.forEach((row, i) => {
+        row.classList.toggle('bg-emerald-500/15', i === index);
+        row.classList.toggle('text-white', i === index);
+        row.classList.toggle('opacity-40', i < index);
+    });
+}
+
+
+// ---------- Starting and stopping ----------
 
 function startFollowRoute(routeId) {
     const trail = savedTrails.get(routeId);
@@ -1501,8 +2088,8 @@ function startFollowRoute(routeId) {
         showToast('Finish your current recording first.', 'info');
         return;
     }
-    if (!trail || trail.points.length < 2) {
-        showToast('This route does not have a path to follow yet.', 'error');
+    if (!trail || trail.points.length < 1) {
+        showToast('This route has no location to follow yet.', 'error');
         return;
     }
     if (!navigator.geolocation) {
@@ -1512,25 +2099,20 @@ function startFollowRoute(routeId) {
 
     stopFollowRoute();   // clean up if you were already following another route
 
-    // How far each point is from the start, so we can tell how much route is left
     const points = trail.points;
-    const distanceFromStart = [0];
-    for (let i = 1; i < points.length; i++) {
-        distanceFromStart.push(
-            distanceFromStart[i - 1] +
-            getDistance(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1])
-        );
-    }
+    const guide = buildTrailGuide(trail);
 
-    followTrail = {
-        name: trail.route.name,
-        points,
-        distanceFromStart,
-        totalMeters: distanceFromStart[points.length - 1]
-    };
+    followTrail = { name: trail.route.name, points, totalMeters: guide.total, guide };
+    followGuide = null;
     followProgress = 0;
     followStage = 'to-start';
     followCameraOn = true;
+    followLastPosition = null;
+    followHeadingAnchor = null;
+    followHeadingShown = 0;
+    followRerouting = false;
+    followLastRerouteAt = 0;
+    followSpoken = new Set();
 
     clearFocusedTrail();
     hideFollowButton();
@@ -1539,32 +2121,37 @@ function startFollowRoute(routeId) {
     // Draw the route
     followLayer = L.layerGroup().addTo(map);
 
-    followLines.toStart = L.polyline([], {
+    const lineLook = { lineCap: 'round', lineJoin: 'round', interactive: false };
+
+    // Blue: the street route from you to the trail start
+    followLines.roadOutline = L.polyline([], { color: '#ffffff', weight: 10, opacity: 0.9, ...lineLook }).addTo(followLayer);
+    followLines.road = L.polyline([], { color: '#38bdf8', weight: 6, opacity: 1, ...lineLook }).addTo(followLayer);
+
+    // White dashed: the way back if you wander off the trail
+    followLines.backToRoute = L.polyline([], {
         color: '#ffffff', weight: 3, opacity: 0.9, dashArray: '4 10', interactive: false
     }).addTo(followLayer);
 
-    followLines.done = L.polyline([points[0]], {
-        color: '#a1a1aa', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false
-    }).addTo(followLayer);
-
-    followLines.leftOutline = L.polyline(points, {
-        color: '#ffffff', weight: 11, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false
-    }).addTo(followLayer);
-
-    followLines.left = L.polyline(points, {
-        color: '#10b981', weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false
-    }).addTo(followLayer);
+    // Gray: the part of the trail you already walked. Green: what is left.
+    followLines.done = L.polyline([points[0]], { color: '#a1a1aa', weight: 6, opacity: 0.9, ...lineLook }).addTo(followLayer);
+    followLines.leftOutline = L.polyline(points, { color: '#ffffff', weight: 11, opacity: 0.9, ...lineLook }).addTo(followLayer);
+    followLines.left = L.polyline(points, { color: '#10b981', weight: 6, opacity: 1, ...lineLook }).addTo(followLayer);
 
     L.marker(points[0], { icon: createStartIcon(false), zIndexOffset: 900 })
         .addTo(followLayer).bindTooltip('Start', PIN_TAG_OPTIONS);
 
-    L.marker(points[points.length - 1], { icon: createEndIcon(), zIndexOffset: 900 })
-        .addTo(followLayer).bindTooltip('End', PIN_TAG_OPTIONS);
+    // A route with only a start pin has no separate end
+    if (points.length > 1) {
+        L.marker(points[points.length - 1], { icon: createEndIcon(), zIndexOffset: 900 })
+            .addTo(followLayer).bindTooltip('End', PIN_TAG_OPTIONS);
+    }
 
     map.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 17 });
     map.on('dragstart', pauseFollowCamera);
 
     showFollowPanel(followTrail.name);
+    keepScreenOn();
+    speak('Starting directions.');   // also "unlocks" voice on phones, which need a tap first
 
     followWatcher = navigator.geolocation.watchPosition(
         onFollowPosition,
@@ -1575,95 +2162,6 @@ function startFollowRoute(routeId) {
 
 function pauseFollowCamera() {
     followCameraOn = false;
-}
-
-// Finds the route point closest to you, looking only between two positions in the list
-function nearestRoutePoint(here, fromIndex, toIndex) {
-    const points = followTrail.points;
-    const lastIndex = Math.min(toIndex, points.length - 1);
-
-    let bestIndex = fromIndex;
-    let bestMeters = Infinity;
-
-    for (let i = fromIndex; i <= lastIndex; i++) {
-        const meters = getDistance(here[0], here[1], points[i][0], points[i][1]);
-        if (meters < bestMeters) {
-            bestMeters = meters;
-            bestIndex = i;
-        }
-    }
-
-    return { index: bestIndex, meters: bestMeters };
-}
-
-function onFollowPosition(position) {
-    if (!followTrail || followStage === 'arrived') return;
-
-    const here = [position.coords.latitude, position.coords.longitude];
-    const { points, distanceFromStart, totalMeters } = followTrail;
-
-    if (!followDot) {
-        followDot = L.marker(here, {
-            icon: L.divIcon({ className: '', html: '<div class="live-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-            zIndexOffset: 1100
-        }).addTo(followLayer);
-    } else {
-        followDot.setLatLng(here);
-    }
-
-    if (followCameraOn) map.panTo(here, { animate: true });
-
-    // Part 1: walk to the start (white dashed line shrinks as you get closer)
-    if (followStage === 'to-start') {
-        const metersToStart = getDistance(here[0], here[1], points[0][0], points[0][1]);
-
-        if (metersToStart > FOLLOW_START_METERS) {
-            followLines.toStart.setLatLngs([here, points[0]]);
-            setFollowMessage(`Head to the start: ${formatDistance(metersToStart)} away.`);
-            return;
-        }
-
-        followStage = 'on-trail';
-        followLines.toStart.setLatLngs([]);
-        showToast('You are at the start. Follow the green line.', 'success');
-    }
-
-    // Part 2: find where you are on the route
-    let nearest = nearestRoutePoint(here, followProgress, followProgress + FOLLOW_LOOK_AHEAD_POINTS);
-
-    if (nearest.meters > FOLLOW_OFF_ROUTE_METERS) {
-        nearest = nearestRoutePoint(here, followProgress, points.length - 1);
-    }
-
-    if (nearest.meters > FOLLOW_OFF_ROUTE_METERS) {
-        followLines.toStart.setLatLngs([here, points[nearest.index]]);
-        setFollowMessage(`You are ${formatDistance(nearest.meters)} off the route. Follow the white dashed line back.`);
-        return;
-    }
-
-    followLines.toStart.setLatLngs([]);
-    followProgress = Math.max(followProgress, nearest.index);
-
-    // The line ahead of you gets shorter, the walked part turns gray
-    const lineAhead = [here, ...points.slice(followProgress + 1)];
-    followLines.left.setLatLngs(lineAhead);
-    followLines.leftOutline.setLatLngs(lineAhead);
-    followLines.done.setLatLngs(points.slice(0, followProgress + 1));
-
-    const metersLeft = totalMeters - distanceFromStart[followProgress];
-
-    if (metersLeft <= FOLLOW_ARRIVE_METERS) {
-        followStage = 'arrived';
-        navigator.geolocation.clearWatch(followWatcher);
-        followWatcher = null;
-        followLines.left.setLatLngs([]);
-        followLines.leftOutline.setLatLngs([]);
-        setFollowMessage('You have arrived. Nice hike!');
-        showToast('You reached the end of the route.', 'success');
-        return;
-    }
-
-    setFollowMessage(`${formatDistance(metersLeft)} left to the end.`);
 }
 
 function stopFollowRoute() {
@@ -1679,16 +2177,337 @@ function stopFollowRoute() {
         followLayer = null;
     }
 
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    allowScreenOff();
+
     followLines = {};
     followDot = null;
     followTrail = null;
+    followGuide = null;
     followProgress = 0;
     followStage = 'to-start';
+    followLastPosition = null;
+    followStepRows = [];
 
     const panel = byId('follow-panel');
     if (panel) panel.classList.add('hidden');
 
     if (!isRecording) byId('hero-cards-container').classList.remove('hidden');
+}
+
+function finishFollowing() {
+    followStage = 'arrived';
+
+    if (followWatcher !== null) {
+        navigator.geolocation.clearWatch(followWatcher);
+        followWatcher = null;
+    }
+    allowScreenOff();
+
+    followLines.left.setLatLngs([]);
+    followLines.leftOutline.setLatLngs([]);
+    followLines.backToRoute.setLatLngs([]);
+    followLines.done.setLatLngs(followTrail.points);
+
+    setFollowBanner({
+        stage: 'Arrived',
+        arrow: '\uD83C\uDFC1',
+        text: 'You have arrived. Nice hike!',
+        detail: '',
+        metersLeft: 0
+    });
+
+    showToast('You reached the end of the route.', 'success');
+    speak('You have arrived. Nice hike!');
+}
+
+
+// ---------- Every GPS update ----------
+
+function updateFollowDot(here, reportedHeading) {
+    if (!followDot) {
+        followDot = L.marker(here, {
+            icon: L.divIcon({
+                className: '',
+                html: '<div class="nav-marker"><div class="nav-heading"></div><div class="live-dot"></div></div>',
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            }),
+            zIndexOffset: 1100
+        }).addTo(followLayer);
+    } else {
+        followDot.setLatLng(here);
+    }
+
+    // The phone's compass heading is best. Otherwise use the direction you just walked.
+    let heading = Number.isFinite(reportedHeading) ? reportedHeading : null;
+
+    if (followHeadingAnchor === null) {
+        followHeadingAnchor = here;
+    } else if (getDistance(followHeadingAnchor[0], followHeadingAnchor[1], here[0], here[1]) >= 3) {
+        if (heading === null) {
+            heading = getBearing(followHeadingAnchor[0], followHeadingAnchor[1], here[0], here[1]);
+        }
+        followHeadingAnchor = here;
+    }
+
+    if (heading !== null) {
+        const arrow = followDot.getElement().querySelector('.nav-heading');
+        if (arrow) {
+            // Turn the short way round, so the arrow never spins a full circle
+            followHeadingShown += ((heading - followHeadingShown + 540) % 360) - 180;
+            arrow.style.transform = `rotate(${followHeadingShown}deg)`;
+            arrow.style.opacity = '1';
+        }
+    }
+}
+
+function onFollowPosition(position) {
+    if (!followTrail || followStage === 'arrived') return;
+
+    const here = [position.coords.latitude, position.coords.longitude];
+    const isFirstFix = followLastPosition === null;
+
+    updateFollowDot(here, position.coords.heading);
+    followLastPosition = here;
+
+    if (isFirstFix) {
+        map.setView(here, Math.max(map.getZoom(), 17), { animate: true });
+    } else if (followCameraOn) {
+        map.panTo(here, { animate: true });
+    }
+
+    refreshFollow(here);
+}
+
+function refreshFollow(here) {
+    if (!followTrail || followStage === 'arrived') return;
+
+    if (followStage === 'to-start') {
+        const start = followTrail.points[0];
+        const metersToStart = getDistance(here[0], here[1], start[0], start[1]);
+
+        if (metersToStart > FOLLOW_START_METERS) {
+            walkToStart(here, metersToStart);
+            return;
+        }
+
+        // Only a start pin was saved (no path): reaching it is the whole trip
+        if (followTrail.points.length < 2) {
+            finishFollowing();
+            return;
+        }
+
+        beginTrailStage();
+    }
+
+    walkTrail(here);
+}
+
+// Asks for a walking route (without blocking the screen while it loads)
+async function requestWalkingGuide(here) {
+    if (followRerouting) return;
+
+    followRerouting = true;
+    followLastRerouteAt = Date.now();
+
+    const trailAtRequest = followTrail;
+    const start = trailAtRequest.points[0];
+    const walkingGuide = await fetchWalkingGuide(here, start);
+
+    followRerouting = false;
+
+    // You may have stopped, or reached the start, while we waited
+    if (followTrail !== trailAtRequest || followStage !== 'to-start') return;
+
+    const wasFirstTry = followGuide === null;
+
+    if (walkingGuide) {
+        followGuide = walkingGuide;
+        followProgress = 0;
+        renderStepsList(walkingGuide);
+    } else if (!followGuide || followGuide.kind !== 'walking') {
+        followGuide = buildStraightGuide(here, start);
+        followProgress = 0;
+        renderStepsList(followGuide);
+
+        if (wasFirstTry) {
+            showToast('Street directions are not available right now. Showing a straight line to the start.', 'info');
+        }
+    }
+
+    if (followLastPosition) refreshFollow(followLastPosition);
+}
+
+// Part 1: get to the start of the trail
+function walkToStart(here, metersToStart) {
+    const start = followTrail.points[0];
+    const secondsSinceTry = (Date.now() - followLastRerouteAt) / 1000;
+    const stageLabel = 'Walk to the trail start';
+
+    if (!followGuide) {
+        setFollowBanner({
+            stage: stageLabel,
+            arrow: '\u23F3',
+            text: 'Finding the best walking route...',
+            detail: `${formatDistance(metersToStart)} away`
+        });
+        requestWalkingGuide(here);
+        return;
+    }
+
+    // Backup straight line: keep it fresh, and try the street route again now and then
+    if (followGuide.kind === 'straight') {
+        followGuide = buildStraightGuide(here, start);
+        followProgress = 0;
+        if (secondsSinceTry > FOLLOW_REROUTE_SECONDS) requestWalkingGuide(here);
+    }
+
+    const guide = followGuide;
+    let spot;
+
+    if (guide.kind === 'straight') {
+        spot = { meters: 0, along: 0, index: 0, point: here };
+    } else {
+        spot = projectOnPath(guide, here, followProgress - 20, followProgress + FOLLOW_ROAD_LOOK_AHEAD_METERS);
+        if (spot.meters > FOLLOW_ROAD_OFF_ROUTE_METERS) spot = projectOnPath(guide, here, 0, guide.total);
+    }
+
+    // Left the street route: ask for a new one, like Google Maps does
+    if (guide.kind === 'walking' && spot.meters > FOLLOW_ROAD_OFF_ROUTE_METERS) {
+        setFollowBanner({
+            stage: stageLabel,
+            arrow: '\u21BB',
+            text: 'Finding a new route...',
+            detail: `${formatDistance(metersToStart)} to the start`
+        });
+        if (secondsSinceTry > FOLLOW_REROUTE_SECONDS) requestWalkingGuide(here);
+        return;
+    }
+
+    followProgress = Math.max(followProgress, spot.along);
+
+    const remaining = [spot.point, ...guide.path.slice(spot.index + 1)];
+    followLines.roadOutline.setLatLngs(remaining);
+    followLines.road.setLatLngs(remaining);
+    followLines.road.setStyle({ dashArray: guide.kind === 'straight' ? '4 10' : null });
+
+    showGuideBanner(guide, followProgress, stageLabel);
+}
+
+// You reached the start: hide the street route and switch to the trail
+function beginTrailStage() {
+    followStage = 'on-trail';
+    followGuide = followTrail.guide;
+    followProgress = 0;
+
+    followLines.roadOutline.setLatLngs([]);
+    followLines.road.setLatLngs([]);
+
+    renderStepsList(followGuide);
+
+    showToast('You are at the start. Follow the green line.', 'success');
+    speak('You are at the start. Follow the green line.');
+}
+
+// Part 2: follow the saved trail
+function walkTrail(here) {
+    const guide = followGuide;
+
+    let spot = projectOnPath(guide, here, followProgress - 20, followProgress + FOLLOW_LOOK_AHEAD_METERS);
+    if (spot.meters > FOLLOW_OFF_ROUTE_METERS) {
+        spot = projectOnPath(guide, here, followProgress - 20, guide.total);
+    }
+
+    if (spot.meters > FOLLOW_OFF_ROUTE_METERS) {
+        followLines.backToRoute.setLatLngs([here, spot.point]);
+
+        setFollowBanner({
+            stage: 'Off the route',
+            arrow: '\u26A0',
+            text: `${formatDistance(spot.meters)} off the route`,
+            detail: 'Follow the white dashed line back',
+            metersLeft: Math.max(0, guide.total - followProgress),
+            secondsLeft: Math.max(0, guide.total - followProgress) * guide.secondsPerMeter
+        });
+
+        if (!followSpoken.has('off-route')) {
+            followSpoken.add('off-route');
+            speak('You are off the route.');
+        }
+        return;
+    }
+
+    followLines.backToRoute.setLatLngs([]);
+    followSpoken.delete('off-route');
+
+    followProgress = Math.max(followProgress, spot.along);
+
+    // The line ahead gets shorter, the walked part turns gray
+    const leftPart = [spot.point, ...guide.path.slice(spot.index + 1)];
+    followLines.left.setLatLngs(leftPart);
+    followLines.leftOutline.setLatLngs(leftPart);
+    followLines.done.setLatLngs([...guide.path.slice(0, spot.index + 1), spot.point]);
+
+    if (guide.total - followProgress <= FOLLOW_ARRIVE_METERS) {
+        finishFollowing();
+        return;
+    }
+
+    showGuideBanner(guide, followProgress, 'Follow the trail');
+}
+
+
+// ---------- Messages and spoken directions ----------
+
+function showGuideBanner(guide, along, stageLabel) {
+    const found = guide.steps.findIndex((step) => step.meters > along + 5);
+    const index = found === -1 ? guide.steps.length - 1 : found;
+    const step = guide.steps[index];
+
+    const metersToNext = Math.max(0, step.meters - along);
+    const metersLeft = Math.max(0, guide.total - along);
+    const secondsLeft = metersLeft * guide.secondsPerMeter;
+
+    if (metersToNext > FOLLOW_PREVIEW_METERS) {
+        // Next turn is far away: just say keep going, and preview what comes next
+        setFollowBanner({
+            stage: stageLabel,
+            arrow: '\u2191',
+            text: 'Continue on the route',
+            detail: `Next: ${lowerFirst(step.text)} in ${formatDistance(metersToNext)}`,
+            metersLeft,
+            secondsLeft
+        });
+    } else {
+        setFollowBanner({
+            stage: stageLabel,
+            arrow: step.arrow,
+            text: step.text,
+            metersToNext,
+            metersLeft,
+            secondsLeft
+        });
+    }
+
+    markNextStep(index);
+
+    if (guide.kind !== 'straight') announceStep(guide, index, step, metersToNext);
+}
+
+// Speaks each step twice: "In 60 meters, turn left" and then "Turn left now"
+function announceStep(guide, index, step, metersToNext) {
+    const farKey = `${guide.id}-${index}-far`;
+    const nearKey = `${guide.id}-${index}-near`;
+
+    if (metersToNext <= SPEAK_NEAR_METERS && !followSpoken.has(nearKey)) {
+        followSpoken.add(nearKey);
+        followSpoken.add(farKey);
+        speak(step.kind === 'arrive' ? step.text : `${step.text} now`);
+    } else if (metersToNext <= SPEAK_FAR_METERS && !followSpoken.has(farKey)) {
+        followSpoken.add(farKey);
+        speak(`In ${speakDistance(metersToNext)}, ${lowerFirst(step.text)}`);
+    }
 }
 
 // ==========================================
@@ -1767,12 +2586,12 @@ const AUTO_REFRESH_SECONDS = 30;
 function startAutoRefresh() {
     setInterval(() => {
         // Do not disturb someone who is in the middle of a walk, or a hidden tab
-        if (isRecording || document.hidden) return;
+        if (isRecording || followTrail || document.hidden) return;
         loadSavedRoutes({ quiet: true });
     }, AUTO_REFRESH_SECONDS * 1000);
 
     // Catch up right away when you come back to this tab
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && !isRecording) loadSavedRoutes({ quiet: true });
+        if (!document.hidden && !isRecording && !followTrail) loadSavedRoutes({ quiet: true });
     });
 }
