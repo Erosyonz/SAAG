@@ -152,6 +152,16 @@
                         </div>
                     {% endif %}
                 </section>
+                <section id="discover" class="mt-10">
+                    <h3 class="font-display text-xl font-bold">Trails to discover</h3>
+                    {% if discover_routes %}
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {% for card in discover_routes %}{% include 'profiles/route_card.html' %}{% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="mt-4 text-sm text-zinc-400">You have finished every trail. Nice!</p>
+                    {% endif %}
+                </section>
             </div>
         </main>
 
