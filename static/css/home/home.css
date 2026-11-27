@@ -358,3 +358,126 @@ body {
 .leaflet-container .leaflet-control-attribution a {
     color: #6ee7b7;
 }
+
+/* ==========================================================
+   Route popup (bigger, black and green)
+   ========================================================== */
+.leaflet-container .leaflet-popup-content-wrapper {
+    background: #000;
+    color: #fff;
+    border: 1px solid rgba(16, 185, 129, 0.6);
+    border-radius: 20px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65);
+}
+
+.leaflet-container .leaflet-popup-tip {
+    background: #000;
+    border: 1px solid rgba(16, 185, 129, 0.6);
+}
+
+.leaflet-container .leaflet-popup-content {
+    margin: 22px 24px 20px;
+    width: 300px !important;
+    font-size: 14px;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+    top: 12px;
+    right: 12px;
+    color: #a1a1aa;
+    font-size: 20px;
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover {
+    color: #34d399;
+}
+
+.leaflet-container .trail-popup-title {
+    font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #fff;
+    margin: 0 20px 6px 0;
+}
+
+.leaflet-container .trail-popup-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #e4e4e7;
+    margin: 0 0 4px;
+}
+
+.leaflet-container .trail-popup-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 18px 0;
+}
+
+.leaflet-container .trail-popup-grid div {
+    background: #111;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    padding: 12px 6px;
+    text-align: center;
+}
+
+.leaflet-container .trail-popup-grid strong {
+    display: block;
+    font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+    font-size: 22px;
+    line-height: 1.1;
+    color: #34d399;
+}
+
+.leaflet-container .trail-popup-grid span {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.leaflet-container .trail-popup-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.leaflet-container .trail-popup-stat {
+    background: #10b981;
+    color: #000;
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.leaflet-container a.trail-popup-owner {
+    background: #fff;
+    color: #000;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+
+
+
+.leaflet-container a.trail-popup-owner:hover {
+    background: #10b981;
+    color: #000;
+    text-decoration: none;
+}
+
+.leaflet-container span.trail-popup-owner {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+}

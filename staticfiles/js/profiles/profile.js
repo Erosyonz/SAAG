@@ -67,11 +67,12 @@ function openEditPanel() {
     updateBioCount();
     setTimeout(() => byId('first-name').focus(), 320);
 }
-
 function closeEditPanel() {
+    if (!byId('edit-panel')) return;   // visitors have no edit panel
     byId('edit-panel').classList.add(...PANEL_HIDDEN_CLASSES);
     byId('panel-backdrop').classList.add('opacity-0', 'pointer-events-none');
 }
+
 
 function updateBioCount() {
     const bio = byId('bio');
@@ -175,18 +176,17 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('click', () => showTab(button.dataset.tab));
     });
 
-    byId('open-edit-btn').addEventListener('click', openEditPanel);
-    byId('close-edit-btn').addEventListener('click', closeEditPanel);
-    byId('cancel-edit-btn').addEventListener('click', closeEditPanel);
-    byId('panel-backdrop').addEventListener('click', closeEditPanel);
+    if (byId('edit-panel')) {
+        byId('open-edit-btn').addEventListener('click', openEditPanel);
+        byId('close-edit-btn').addEventListener('click', closeEditPanel);
+        byId('cancel-edit-btn').addEventListener('click', closeEditPanel);
+        byId('panel-backdrop').addEventListener('click', closeEditPanel);
 
-    byId('photo-input').addEventListener('change', showPhotoPreview);
-    byId('remove-photo-btn').addEventListener('click', removePhoto);
-    byId('bio').addEventListener('input', updateBioCount);
-    byId('profile-form').addEventListener('submit', saveProfile);
-
-    byId('open-sidebar-btn').addEventListener('click', openSidebar);
-    byId('close-sidebar-btn').addEventListener('click', closeSidebar);
+        byId('photo-input').addEventListener('change', showPhotoPreview);
+        byId('remove-photo-btn').addEventListener('click', removePhoto);
+        byId('bio').addEventListener('input', updateBioCount);
+        byId('profile-form').addEventListener('submit', saveProfile);
+    }
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') closeEditPanel();

@@ -17,7 +17,7 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from apps.accounts.models import Route
-
+from django.urls import reverse
 
 
 
@@ -416,6 +416,10 @@ def route_map_data(request):
             'difficulty': get_difficulty_label(distance_km, climb_meters),
             'created_by': creator_name,
             'is_mine': route.account_id == request.user.pk,
+            'profile_url': (
+                reverse('profile') if route.account_id == request.user.pk
+                else reverse('profile_detail', args=[route.account_id])
+            ),
             'created_at': route.created_at.isoformat(),
             'cover_image': cover_image,
 
