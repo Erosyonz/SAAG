@@ -14,6 +14,7 @@ urlpatterns = [
     path('register/', account_register, name='register'),
     path('logout/', account_logout, name='logout'),
     path('profile/', profile_view, name='profile'),
+    path('profile/<int:account_id>/', profile_view, name='profile_detail'),
     path('profile/update/', update_profile, name='profile_update'),   # <-- new
     path('settings/', user_settings, name='user_settings'),
 ]

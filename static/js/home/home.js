@@ -821,6 +821,20 @@ async function stopRoute() {
     clearInterval(hudTimer);
     hudTimer = null;
 
+    // Save the spot where the person is standing when they press Finish
+    if (currentPosition) {
+        const lastSavedPoint = routeData.Coordinates[routeData.Coordinates.length - 1];
+        const metersFromLastPoint = getDistance(
+            lastSavedPoint.Latitude, lastSavedPoint.Longitude,
+            currentPosition[0], currentPosition[1]
+        );
+
+        if (metersFromLastPoint > 0.5) {
+            addRouteCoordinate(currentPosition[0], currentPosition[1], lastAltitude);
+            routeData.TotalDistance += metersFromLastPoint / 1000;
+        }
+    }
+
     const finishedRouteId = activeRouteId;
     const finishedName = routeData.RouteName;
     const distanceKm = routeData.TotalDistance;
@@ -996,7 +1010,11 @@ function buildEndPopup(route, gapMeters) {
 
 function buildRoutePopup(route) {
     const climbMeters = Math.round(Number(route.elevation || 0));
-    const owner = route.is_mine ? 'Your route' : `By ${escapeHtml(route.created_by)}`;
+    const ownerText = route.is_mine ? 'Your route' : `By ${escapeHtml(route.created_by)}`;
+
+    const owner = route.profile_url
+        ? `<a class="trail-popup-owner" href="${escapeHtml(route.profile_url)}" title="Open profile">${ownerText} &rarr;</a>`
+        : `<span class="trail-popup-owner">${ownerText}</span>`;
 
     return `
         <div>
@@ -1011,13 +1029,29 @@ function buildRoutePopup(route) {
 
             <div class="trail-popup-footer">
                 <span class="trail-popup-stat">${escapeHtml(route.difficulty)}</span>
-                <span class="trail-popup-owner">${owner}</span>
+                ${owner}
             </div>
         </div>`;
 }
 
 function displaySavedRoute(route) {
     const points = (route.coordinates || []).map((point) => [point.latitude, point.longitude]);
+    // Use the saved end spot too, so the line reaches the real end
+    const lastRow = (route.coordinates || [])[route.coordinates.length - 1];
+
+    if (points.length > 0 && lastRow &&
+        lastRow.end_latitude !== null && lastRow.end_longitude !== null) {
+
+        const lastKnownPoint = points[points.length - 1];
+        const metersToEnd = getDistance(
+            lastKnownPoint[0], lastKnownPoint[1],
+            lastRow.end_latitude, lastRow.end_longitude
+        );
+
+        if (metersToEnd > 1) {
+            points.push([lastRow.end_latitude, lastRow.end_longitude]);
+        }
+    }
 
     if (points.length === 0) return;
 

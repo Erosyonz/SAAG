@@ -39,8 +39,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
                         </svg>
                     </a>
-                    <a href="{% url 'profile' %}" title="Profile" aria-label="Profile" aria-current="page"
-                        class="nav-link active flex items-center justify-center py-3 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
+                    <a href="{% url 'profile' %}" title="Profile" aria-label="Profile" {% if is_own_profile %}aria-current="page"{% endif %}
+                        class="nav-link {% if is_own_profile %}active{% endif %} flex items-center justify-center py-3 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                         </svg>
@@ -66,29 +66,31 @@
 
             <div class="mx-auto w-full max-w-5xl px-5 sm:px-8 pb-16">
 
-                <!-- Who you are -->
+                <!-- Who this profile belongs to -->
                 <section class="-mt-14 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
                         <div class="relative size-28 shrink-0 overflow-hidden rounded-3xl border-4 border-black bg-emerald-500 text-black grid place-items-center font-display text-4xl font-extrabold">
-                            <span>{{ user.first_name|default:user.username|first|upper }}</span>
-                            {% if user.profile %}
-                                <img src="{{ user.profile }}" alt="" onerror="this.remove()"
+                            <span>{{ profile_owner.first_name|default:profile_owner.username|first|upper }}</span>
+                            {% if profile_owner.profile %}
+                                <img src="{{ profile_owner.profile }}" alt="" onerror="this.remove()"
                                     class="absolute inset-0 h-full w-full object-cover">
                             {% endif %}
                         </div>
                         <div class="min-w-0">
                             <h1 class="font-display text-3xl sm:text-4xl font-bold leading-tight truncate">
-                                {{ user.get_full_name|default:user.username }}
+                                {{ profile_owner.get_full_name|default:profile_owner.username }}
                             </h1>
-                            <p class="mt-1 text-sm text-zinc-400 truncate">@{{ user.username }}{% if user.email %} &middot; {{ user.email }}{% endif %}</p>
+                            <p class="mt-1 text-sm text-zinc-400 truncate">@{{ profile_owner.username }}{% if is_own_profile and profile_owner.email %} &middot; {{ profile_owner.email }}{% endif %}</p>
                         </div>
                     </div>
 
                     <div class="flex gap-3">
+                        {% if is_own_profile %}
                         <button id="open-edit-btn" type="button"
                             class="px-5 h-11 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold transition-colors">
                             Edit profile
                         </button>
+                        {% endif %}
                         <a href="{% url 'home' %}"
                             class="px-5 h-11 inline-flex items-center rounded-xl border border-white/15 text-sm font-semibold text-white hover:bg-white hover:text-black transition-colors">
                             Back to map
@@ -96,8 +98,8 @@
                     </div>
                 </section>
 
-                <p class="mt-6 max-w-2xl text-sm leading-relaxed {% if user.bio %}text-zinc-200{% else %}text-zinc-500{% endif %}">
-                    {{ user.bio|default:"No bio yet. Use Edit profile to tell people about your hiking." }}
+                <p class="mt-6 max-w-2xl text-sm leading-relaxed {% if profile_owner.bio %}text-zinc-200{% else %}text-zinc-500{% endif %}">
+                    {% if is_own_profile %}{{ profile_owner.bio|default:"No bio yet. Use Edit profile to tell people about your hiking." }}{% else %}{{ profile_owner.bio|default:"No bio yet." }}{% endif %}
                 </p>
 
                 <!-- Numbers -->
@@ -112,7 +114,7 @@
                     </div>
                     <div class="p-5">
                         <dd class="font-display text-2xl font-bold text-emerald-400">{{ total_km|floatformat:1 }} <span class="text-sm font-semibold text-zinc-400">km</span></dd>
-                        <dt class="text-xs text-zinc-400 mt-1">Recorded by you</dt>
+                        <dt class="text-xs text-zinc-400 mt-1">{% if is_own_profile %}Recorded by you{% else %}Recorded by {{ profile_owner.first_name|default:profile_owner.username }}{% endif %}</dt>
                     </div>
                 </dl>
 
@@ -135,8 +137,12 @@
                         </div>
                     {% else %}
                         <div class="rounded-2xl border border-white/10 bg-zinc-950 p-6 flex flex-wrap items-center justify-between gap-4">
-                            <p class="text-sm text-zinc-300">You have not recorded a route yet. Start one on the map.</p>
-                            <a href="{% url 'home' %}" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold transition-colors">New route</a>
+                            {% if is_own_profile %}
+                                <p class="text-sm text-zinc-300">You have not recorded a route yet. Start one on the map.</p>
+                                <a href="{% url 'home' %}" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold transition-colors">New route</a>
+                            {% else %}
+                                <p class="text-sm text-zinc-300">{{ profile_owner.first_name|default:profile_owner.username }} has not recorded a route yet.</p>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </section>
@@ -148,10 +154,13 @@
                         </div>
                     {% else %}
                         <div class="rounded-2xl border border-white/10 bg-zinc-950 p-6">
-                            <p class="text-sm text-zinc-300">Routes you finish will be listed here.</p>
+                            <p class="text-sm text-zinc-300">{% if is_own_profile %}Routes you finish will be listed here.{% else %}No finished routes yet.{% endif %}</p>
                         </div>
                     {% endif %}
                 </section>
+
+                <!-- Only shown on your own profile -->
+                {% if is_own_profile %}
                 <section id="discover" class="mt-10">
                     <h3 class="font-display text-xl font-bold">Trails to discover</h3>
                     {% if discover_routes %}
@@ -162,11 +171,13 @@
                         <p class="mt-4 text-sm text-zinc-400">You have finished every trail. Nice!</p>
                     {% endif %}
                 </section>
+                {% endif %}
             </div>
         </main>
 
 
-        <!-- ================= EDIT PROFILE PANEL ================= -->
+        <!-- ================= EDIT PROFILE PANEL (only on your own profile) ================= -->
+        {% if is_own_profile %}
         <div id="panel-backdrop" class="fixed inset-0 z-30 bg-black/60 opacity-0 pointer-events-none transition-opacity duration-300"></div>
 
         <aside id="edit-panel" role="dialog" aria-modal="true" aria-labelledby="edit-title"
@@ -192,10 +203,10 @@
 
                     <div class="flex items-center gap-4">
                         <div class="size-20 shrink-0 overflow-hidden rounded-2xl bg-emerald-500 text-black grid place-items-center font-display text-2xl font-extrabold">
-                            <img id="photo-preview" alt="" src="{{ user.profile|default:'' }}"
+                            <img id="photo-preview" alt="" src="{{ profile_owner.profile|default:'' }}"
                             onerror="this.classList.add('hidden'); document.getElementById('photo-initial').classList.remove('hidden')"
-                            class="h-full w-full object-cover {% if not user.profile %}hidden{% endif %}">
-                            <span id="photo-initial" class="{% if user.profile %}hidden{% endif %}">{{ user.first_name|default:user.username|first|upper }}</span>
+                            class="h-full w-full object-cover {% if not profile_owner.profile %}hidden{% endif %}">
+                            <span id="photo-initial" class="{% if profile_owner.profile %}hidden{% endif %}">{{ profile_owner.first_name|default:profile_owner.username|first|upper }}</span>
                         </div>
                         <div class="space-y-2">
                             <label for="photo-input"
@@ -212,32 +223,32 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label for="first-name" class="block text-sm font-semibold mb-2">First name</label>
-                            <input id="first-name" name="first_name" type="text" maxlength="50" value="{{ user.first_name }}" autocomplete="given-name"
+                            <input id="first-name" name="first_name" type="text" maxlength="50" value="{{ profile_owner.first_name }}" autocomplete="given-name"
                                 class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
                         </div>
                         <div>
                             <label for="last-name" class="block text-sm font-semibold mb-2">Last name</label>
-                            <input id="last-name" name="last_name" type="text" maxlength="50" value="{{ user.last_name }}" autocomplete="family-name"
+                            <input id="last-name" name="last_name" type="text" maxlength="50" value="{{ profile_owner.last_name }}" autocomplete="family-name"
                                 class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label for="username" class="block text-sm font-semibold mb-2">Username</label>
-                        <input id="username" name="username" type="text" maxlength="150" value="{{ user.username }}" autocomplete="username"
+                        <input id="username" name="username" type="text" maxlength="150" value="{{ profile_owner.username }}" autocomplete="username"
                             class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
                     </div>
 
                     <div>
                         <label for="email" class="block text-sm font-semibold mb-2">Email</label>
-                        <input id="email" name="email" type="email" maxlength="254" value="{{ user.email }}" autocomplete="email"
+                        <input id="email" name="email" type="email" maxlength="254" value="{{ profile_owner.email }}" autocomplete="email"
                             class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">
                     </div>
 
                     <div>
                         <label for="bio" class="block text-sm font-semibold mb-2">Bio <span class="text-zinc-500 font-normal">(optional)</span></label>
                         <textarea id="bio" name="bio" rows="4" maxlength="255" placeholder="Tell people about your hiking"
-                            class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm resize-none placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">{{ user.bio|default:"" }}</textarea>
+                            class="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm resize-none placeholder-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/40 outline-none">{{ profile_owner.bio|default:"" }}</textarea>
                         <p id="bio-count" class="mt-1 text-right text-xs text-zinc-500"></p>
                     </div>
                 </div>
@@ -254,6 +265,7 @@
                 </div>
             </form>
         </aside>
+        {% endif %}
 
         <div id="toast-area" aria-live="polite"
             class="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-[92%] max-w-sm pointer-events-none"></div>

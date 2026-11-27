@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
-
+from django.shortcuts import get_object_or_404, render
 from apps.accounts.models import Account, Route, UserCompletedRoute
 
 
@@ -102,8 +102,13 @@ def build_route_card(route, date, rating=None):
 
 @login_required
 @ensure_csrf_cookie
-def profile_view(request):
-    user = request.user
+def profile_view(request, account_id=None):
+    if account_id is None or account_id == request.user.pk:
+        user = request.user
+    else:
+        user = get_object_or_404(Account, pk=account_id)
+
+    is_own_profile = user.pk == request.user.pk
 
     # Routes this user recorded
     created = (
@@ -136,9 +141,11 @@ def profile_view(request):
     discover_routes = [
         build_route_card(route, route.created_at)
         for route in get_trails_to_discover(user)[:6]
-    ]
+    ] if is_own_profile else []
 
     return render(request, 'profiles/profile.html', {
+        'profile_owner': user,
+        'is_own_profile': is_own_profile,
         'created_routes': created_routes,
         'completed_routes': completed_routes,
         'created_count': len(created_routes),
